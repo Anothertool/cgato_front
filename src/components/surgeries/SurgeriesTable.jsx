@@ -1,6 +1,9 @@
 import { Badge, Box, Flex, Table, Text } from '@chakra-ui/react'
 import {
+    budgetStatusLabels,
     checklist,
+    insurerLabels,
+    surgeryTypeLabels,
     eyeLabels,
     formatDate,
     patientName,
@@ -9,7 +12,26 @@ import {
 } from '../../utils/format'
 import RecordActions from '../ui/RecordActions'
 
-export default function SurgeriesTable({ surgeries, onEdit, onDelete, onCancel }) {
+const paymentStatuses = {
+    PAID: { label: 'Pagado', color: 'green' },
+    PARTIAL: { label: 'Pago parcial', color: 'orange' },
+    PENDING: { label: 'Sin pagar', color: 'red' },
+    UNKNOWN: { label: 'Desconocido', color: 'gray' },
+}
+const currencyFormatter = new Intl.NumberFormat('es-ES', {
+    style: 'currency',
+    currency: 'EUR',
+})
+
+export default function SurgeriesTable({
+    surgeries,
+    onEdit,
+    onDelete,
+    onCancel,
+    onComplete,
+    onReopen,
+    pending,
+}) {
     return (
         <Box overflowX="auto">
             <Table.Root size="sm">
@@ -17,12 +39,13 @@ export default function SurgeriesTable({ surgeries, onEdit, onDelete, onCancel }
                     <Table.Row bg="gray.50">
                         {[
                             'Paciente',
-                            'Fecha de cirugía',
-                            'Hospital',
+                            'Fecha programada',
                             'Tipo de cirugía',
                             'Ojo',
                             'Aseguradora',
-                            'Estado',
+                            'Estado del presupuesto',
+                            'Estado de cirugía',
+                            'Pago',
                             'Preparación',
                             'Acciones',
                         ].map((label) => (
@@ -41,6 +64,8 @@ export default function SurgeriesTable({ surgeries, onEdit, onDelete, onCancel }
                 </Table.Header>
                 <Table.Body>
                     {surgeries.map((surgery) => {
+                        const paymentStatus =
+                            paymentStatuses[surgery.payment_status] || paymentStatuses.UNKNOWN
                         const completed = Object.keys(checklist).filter(
                             (key) => surgery[key],
                         ).length
@@ -57,31 +82,84 @@ export default function SurgeriesTable({ surgeries, onEdit, onDelete, onCancel }
                                 <Table.Cell px="4" whiteSpace="nowrap" color="gray.600">
                                     {formatDate(surgery.scheduled_at, true)}
                                 </Table.Cell>
-                                <Table.Cell px="4">{surgery.hospital}</Table.Cell>
-                                <Table.Cell px="4">{surgery.surgery_type}</Table.Cell>
-                                <Table.Cell px="4" color="gray.600">
-                                    {eyeLabels[surgery.eye] || surgery.eye}
+                                <Table.Cell px="4">
+                                    {surgeryTypeLabels[surgery.surgery_type] ||
+                                        surgery.surgery_type ||
+                                        '—'}
                                 </Table.Cell>
                                 <Table.Cell px="4" color="gray.600">
-                                    {surgery.insurer || '—'}
+                                    {eyeLabels[surgery.eye] || surgery.eye || '—'}
+                                </Table.Cell>
+                                <Table.Cell px="4" color="gray.600">
+                                    {insurerLabels[surgery.insurer] || surgery.insurer || '—'}
                                 </Table.Cell>
                                 <Table.Cell px="4">
                                     <Badge
-                                        colorPalette={statusColors[surgery.status] || 'gray'}
+                                        colorPalette={statusColors[surgery.budget_status] || 'gray'}
                                         variant="subtle"
                                         rounded="full"
                                         px="2.5"
                                         py="1"
                                         whiteSpace="nowrap"
                                     >
-                                        {statusLabels[surgery.status] || surgery.status}
+                                        {budgetStatusLabels[surgery.budget_status] ||
+                                            surgery.budget_status ||
+                                            '—'}
                                     </Badge>
+                                </Table.Cell>
+                                <Table.Cell px="4">
+                                    <Badge
+                                        colorPalette={
+                                            statusColors[surgery.display_status] || 'gray'
+                                        }
+                                        variant="subtle"
+                                        rounded="full"
+                                        px="2.5"
+                                        py="1"
+                                        whiteSpace="nowrap"
+                                    >
+                                        {statusLabels[surgery.display_status] ||
+                                            surgery.display_status ||
+                                            '—'}
+                                    </Badge>
+                                </Table.Cell>
+                                <Table.Cell px="4">
+                                    <Badge
+                                        colorPalette={paymentStatus.color}
+                                        variant="subtle"
+                                        rounded="full"
+                                        px="2.5"
+                                        py="1"
+                                        whiteSpace="nowrap"
+                                    >
+                                        {paymentStatus.label}
+                                    </Badge>
+                                    {['PARTIAL', 'PENDING'].includes(surgery.payment_status) && (
+                                        <Text
+                                            fontSize="xs"
+                                            color="gray.500"
+                                            mt="1"
+                                            whiteSpace="nowrap"
+                                        >
+                                            Pendiente:{' '}
+                                            {currencyFormatter.format(Number(surgery.amount_due))}
+                                            {surgery.payment_status === 'PARTIAL' && (
+                                                <>
+                                                    {' · Cobrado: '}
+                                                    {Number(
+                                                        surgery.payment_percentage,
+                                                    ).toLocaleString('es-ES')}{' '}
+                                                    %
+                                                </>
+                                            )}
+                                        </Text>
+                                    )}
                                 </Table.Cell>
                                 <Table.Cell px="4">
                                     <Flex
                                         align="center"
                                         gap="2"
-                                        aria-label={`${completed} de 4 comprobaciones completadas`}
+                                        aria-label={`${completed} de ${Object.keys(checklist).length} comprobaciones completadas`}
                                     >
                                         <Flex gap="1">
                                             {Object.keys(checklist).map((key) => (
@@ -95,17 +173,42 @@ export default function SurgeriesTable({ surgeries, onEdit, onDelete, onCancel }
                                             ))}
                                         </Flex>
                                         <Text fontSize="xs" color="gray.500">
-                                            {completed}/4
+                                            {completed}/{Object.keys(checklist).length}
                                         </Text>
                                     </Flex>
                                 </Table.Cell>
                                 <Table.Cell px="4">
                                     <RecordActions
                                         label={patientName(surgery.patient)}
+                                        disabled={pending}
+                                        onComplete={
+                                            [
+                                                'QUOTED',
+                                                'ACCEPTED',
+                                                'LOST',
+                                                'SCHEDULED',
+                                                'AWAITING_CONFIRMATION',
+                                            ].includes(surgery.display_status)
+                                                ? () => onComplete(surgery)
+                                                : undefined
+                                        }
+                                        onReopen={
+                                            ['CANCELLED', 'COMPLETED'].includes(
+                                                surgery.display_status,
+                                            )
+                                                ? () => onReopen(surgery)
+                                                : undefined
+                                        }
                                         onEdit={() => onEdit(surgery)}
                                         onDelete={() => onDelete(surgery)}
                                         onCancel={
-                                            !['CANCELLED', 'COMPLETED'].includes(surgery.status)
+                                            [
+                                                'QUOTED',
+                                                'ACCEPTED',
+                                                'LOST',
+                                                'SCHEDULED',
+                                                'AWAITING_CONFIRMATION',
+                                            ].includes(surgery.display_status)
                                                 ? () => onCancel(surgery)
                                                 : undefined
                                         }

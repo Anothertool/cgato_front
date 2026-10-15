@@ -1,22 +1,13 @@
 import { useState } from 'react'
-import {
-    Box,
-    Button,
-    Flex,
-    Heading,
-    Input,
-    Popover,
-    SimpleGrid,
-    Stack,
-    Text,
-} from '@chakra-ui/react'
+import { createPortal } from 'react-dom'
+import { useOutletContext } from 'react-router-dom'
+import { Box, Button, Flex, Input, Popover, SimpleGrid, Stack, Text } from '@chakra-ui/react'
 import { CalendarDays, ListFilter, Plus, Search, X } from 'lucide-react'
 import { surgeriesApi } from '../api/surgeries'
 import useAuthFetch from '../hooks/useAuthFetch'
 import useAuthMutate from '../hooks/useAuthMutate'
 import useAuthDelete from '../hooks/useAuthDelete'
-import useDebouncedValue from '../hooks/useDebouncedValue'
-import { patientName, statusLabels } from '../utils/format'
+import { budgetStatusLabels, insurerLabels, patientName, surgeryTypeLabels } from '../utils/format'
 import SurgeriesTable from '../components/surgeries/SurgeriesTable'
 import SurgeryForm from '../components/surgeries/SurgeryForm'
 import PatientPicker from '../components/patients/PatientPicker'
@@ -25,20 +16,21 @@ import Pagination from '../components/ui/Pagination'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { ListFeedback } from '../components/ui/Feedback'
 
-const emptyFilters = { hospital: '', status: '', date: '' }
+const emptyFilters = { budget_status: '', surgery_type: '', insurer: '', date: '' }
 
 export default function SurgeriesPage() {
+    const { headerActions } = useOutletContext()
     const [page, setPage] = useState(1)
     const [filters, setFilters] = useState(emptyFilters)
     const [patient, setPatient] = useState(null)
     const [pickerOpen, setPickerOpen] = useState(false)
     const [form, setForm] = useState(null)
     const [action, setAction] = useState(null)
-    const hospital = useDebouncedValue(filters.hospital)
     const params = {
         page,
-        ...(hospital ? { hospital } : {}),
-        ...(filters.status ? { status: filters.status } : {}),
+        ...(filters.budget_status ? { budget_status: filters.budget_status } : {}),
+        ...(filters.surgery_type ? { surgery_type: filters.surgery_type } : {}),
+        ...(filters.insurer ? { insurer: filters.insurer } : {}),
         ...(patient ? { patient_id: patient.id } : {}),
         ...(filters.date
             ? {
@@ -61,9 +53,21 @@ export default function SurgeriesPage() {
         onSuccess: done,
     })
     const cancel = useAuthMutate({
-        mutationFn: (id) => surgeriesApi.update(id, { status: 'CANCELLED' }),
+        mutationFn: surgeriesApi.cancel,
         invalidateKeys: [['surgeries']],
         successMessage: 'Cirugía cancelada',
+        onSuccess: done,
+    })
+    const complete = useAuthMutate({
+        mutationFn: surgeriesApi.complete,
+        invalidateKeys: [['surgeries']],
+        successMessage: 'Cirugía marcada como realizada',
+        onSuccess: done,
+    })
+    const reopen = useAuthMutate({
+        mutationFn: surgeriesApi.reopen,
+        invalidateKeys: [['surgeries']],
+        successMessage: 'Cirugía reabierta',
         onSuccess: done,
     })
     const updateFilter = (event) => {
@@ -76,40 +80,29 @@ export default function SurgeriesPage() {
     const requestAction = (surgery, type) => {
         remove.reset()
         cancel.reset()
+        complete.reset()
         setAction({ surgery, type })
     }
-    const activeMutation = action?.type === 'cancel' ? cancel : remove
-    const hasFilters = patient || filters.hospital || filters.status || filters.date
+    const activeMutation =
+        action?.type === 'cancel' ? cancel : action?.type === 'complete' ? complete : remove
+    const pending = remove.isPending || cancel.isPending || complete.isPending || reopen.isPending
+    const hasFilters = patient || Object.values(filters).some(Boolean)
     return (
         <Stack gap="7">
-            <Flex
-                justify="space-between"
-                align={{ base: 'start', sm: 'center' }}
-                gap="4"
-                wrap="wrap"
-            >
-                <Box>
-                    <Text
-                        color="blue.700"
-                        fontSize="xs"
-                        fontWeight="semibold"
-                        mb="2"
-                        letterSpacing="1px"
+            {headerActions &&
+                createPortal(
+                    <Button
+                        bg="blue.950"
+                        color="white"
+                        size={{ base: 'sm', sm: 'md' }}
+                        px={{ base: '3', sm: '5' }}
+                        onClick={() => setForm({})}
                     >
-                        PLANIFICACIÓN QUIRÚRGICA
-                    </Text>
-                    <Heading size="3xl" letterSpacing="-1px">
-                        Cirugías
-                    </Heading>
-                    <Text mt="2" color="gray.500" fontSize="sm">
-                        Organiza cada intervención y acompaña su preparación.
-                    </Text>
-                </Box>
-                <Button bg="blue.950" color="white" px="5" onClick={() => setForm({})}>
-                    <Plus size={17} />
-                    Nueva cirugía
-                </Button>
-            </Flex>
+                        <Plus size={17} />
+                        Nueva cirugía
+                    </Button>,
+                    headerActions,
+                )}
             <Box bg="white" rounded="xl" borderWidth="1px" borderColor="gray.200" overflow="hidden">
                 <Flex px="5" py="5" align="center" justify="space-between" gap="4" wrap="wrap">
                     <Flex gap="2" align="center">
@@ -152,29 +145,26 @@ export default function SurgeriesPage() {
                 </Flex>
                 <Box px="5" pb="5">
                     <SimpleGrid columns={{ base: 1, sm: 2, xl: 4 }} gap="4" alignItems="end">
-                        <FormField label="Hospital">
-                            <Input
-                                name="hospital"
-                                placeholder="Nombre exacto del hospital"
-                                value={filters.hospital}
-                                onChange={updateFilter}
-                                size="sm"
-                            />
-                        </FormField>
-                        <FormField label="Estado">
-                            <SelectInput
-                                name="status"
-                                value={filters.status}
-                                onChange={updateFilter}
-                            >
-                                <option value="">Todos los estados</option>
-                                {Object.entries(statusLabels).map(([key, label]) => (
-                                    <option key={key} value={key}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </SelectInput>
-                        </FormField>
+                        {[
+                            ['budget_status', 'Estado del presupuesto', budgetStatusLabels],
+                            ['surgery_type', 'Tipo de cirugía', surgeryTypeLabels],
+                            ['insurer', 'Aseguradora', insurerLabels],
+                        ].map(([name, label, options]) => (
+                            <FormField key={name} label={label}>
+                                <SelectInput
+                                    name={name}
+                                    value={filters[name]}
+                                    onChange={updateFilter}
+                                >
+                                    <option value="">Todos</option>
+                                    {Object.entries(options).map(([key, text]) => (
+                                        <option key={key} value={key}>
+                                            {text}
+                                        </option>
+                                    ))}
+                                </SelectInput>
+                            </FormField>
+                        ))}
                         <FormField label="Fecha de cirugía">
                             <Input
                                 type="date"
@@ -212,6 +202,9 @@ export default function SurgeriesPage() {
                         onEdit={setForm}
                         onDelete={(surgery) => requestAction(surgery, 'delete')}
                         onCancel={(surgery) => requestAction(surgery, 'cancel')}
+                        onComplete={(surgery) => requestAction(surgery, 'complete')}
+                        onReopen={(surgery) => reopen.mutate(surgery.id)}
+                        pending={pending}
                     />
                 )}
                 <Pagination
@@ -224,14 +217,26 @@ export default function SurgeriesPage() {
             {form && <SurgeryForm surgery={form.id ? form : null} onClose={() => setForm(null)} />}
             {action && (
                 <ConfirmDialog
-                    title={action.type === 'cancel' ? 'Cancelar cirugía' : 'Eliminar cirugía'}
+                    title={
+                        action.type === 'complete'
+                            ? 'Marcar como realizada'
+                            : action.type === 'cancel'
+                              ? 'Cancelar cirugía'
+                              : 'Eliminar cirugía'
+                    }
                     description={
-                        action.type === 'cancel'
-                            ? `La cirugía de ${patientName(action.surgery.patient)} pasará a estado «Cancelada» y seguirá en el registro.`
-                            : `La cirugía de ${patientName(action.surgery.patient)} se retirará del listado. El servidor conserva su trazabilidad mediante borrado lógico.`
+                        action.type === 'complete'
+                            ? `La cirugía de ${patientName(action.surgery.patient)} pasará a estado «Realizada».`
+                            : action.type === 'cancel'
+                              ? `La cirugía de ${patientName(action.surgery.patient)} pasará a estado «Cancelada» y seguirá en el registro.`
+                              : `La cirugía de ${patientName(action.surgery.patient)} se retirará del listado. El servidor conserva su trazabilidad mediante borrado lógico.`
                     }
                     confirmLabel={
-                        action.type === 'cancel' ? 'Cancelar cirugía' : 'Eliminar cirugía'
+                        action.type === 'complete'
+                            ? 'Marcar como realizada'
+                            : action.type === 'cancel'
+                              ? 'Cancelar cirugía'
+                              : 'Eliminar cirugía'
                     }
                     pending={activeMutation.isPending}
                     error={activeMutation.error}

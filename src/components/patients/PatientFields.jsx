@@ -1,20 +1,28 @@
 import { SimpleGrid } from '@chakra-ui/react'
-import FormField from '../ui/FormField'
+import FormField, { SelectInput } from '../ui/FormField'
+import { patientSourceLabels } from '../../utils/format'
 
 export const emptyPatient = {
     first_name: '',
     last_name: '',
     phone: '',
+    patient_source: 'UNKNOWN',
     clinical_reference: '',
 }
 export const patientPayload = (patient) => ({
     first_name: patient.first_name.trim(),
-    last_name: patient.last_name.trim(),
-    phone: patient.phone.trim(),
+    last_name: patient.last_name?.trim() || '',
+    phone: patient.phone?.trim() || '',
+    patient_source: patient.patient_source || 'UNKNOWN',
     clinical_reference: patient.clinical_reference?.trim() || null,
 })
 
-export default function PatientFields({ value, onChange, errors = {} }) {
+export default function PatientFields({
+    value,
+    onChange,
+    errors = {},
+    showClinicalReference = true,
+}) {
     const change = (event) => onChange({ ...value, [event.target.name]: event.target.value })
     return (
         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
@@ -45,14 +53,29 @@ export default function PatientFields({ value, onChange, errors = {} }) {
                 onChange={change}
                 error={errors.phone}
             />
-            <FormField
-                label="Referencia clínica"
-                name="clinical_reference"
-                maxLength={100}
-                value={value.clinical_reference}
-                onChange={change}
-                error={errors.clinical_reference}
-            />
+            <FormField label="Procedencia del paciente" error={errors.patient_source}>
+                <SelectInput
+                    name="patient_source"
+                    value={value.patient_source || 'UNKNOWN'}
+                    onChange={change}
+                >
+                    {Object.entries(patientSourceLabels).map(([key, label]) => (
+                        <option key={key} value={key}>
+                            {label}
+                        </option>
+                    ))}
+                </SelectInput>
+            </FormField>
+            {showClinicalReference && (
+                <FormField
+                    label="Referencia clínica"
+                    name="clinical_reference"
+                    maxLength={100}
+                    value={value.clinical_reference}
+                    onChange={change}
+                    error={errors.clinical_reference}
+                />
+            )}
         </SimpleGrid>
     )
 }

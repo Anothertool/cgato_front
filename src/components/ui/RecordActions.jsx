@@ -1,11 +1,24 @@
 import { IconButton, Menu, Portal } from '@chakra-ui/react'
-import { Ban, MoreHorizontal, Pencil, Trash2 } from 'lucide-react'
+import { Ban, Check, MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 
-export default function RecordActions({ label, onEdit, onDelete, onCancel }) {
+export default function RecordActions({
+    label,
+    onEdit,
+    onDelete,
+    onCancel,
+    onComplete,
+    onReopen,
+    disabled,
+}) {
     return (
         <Menu.Root>
             <Menu.Trigger asChild>
-                <IconButton aria-label={`Acciones de ${label}`} size="sm" variant="ghost">
+                <IconButton
+                    aria-label={`Acciones de ${label}`}
+                    size="sm"
+                    variant="ghost"
+                    disabled={disabled}
+                >
                     <MoreHorizontal size={18} />
                 </IconButton>
             </Menu.Trigger>
@@ -16,6 +29,18 @@ export default function RecordActions({ label, onEdit, onDelete, onCancel }) {
                             <Pencil size={15} />
                             Editar
                         </Menu.Item>
+                        {onComplete && (
+                            <Menu.Item value="complete" onSelect={onComplete}>
+                                <Check size={15} />
+                                Marcar como realizada
+                            </Menu.Item>
+                        )}
+                        {onReopen && (
+                            <Menu.Item value="reopen" onSelect={onReopen}>
+                                <RotateCcw size={15} />
+                                Reabrir cirugía
+                            </Menu.Item>
+                        )}
                         {onCancel && (
                             <Menu.Item value="cancel" onSelect={onCancel}>
                                 <Ban size={15} />

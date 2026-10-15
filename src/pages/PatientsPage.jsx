@@ -1,5 +1,7 @@
 import { useState } from 'react'
-import { Box, Button, Flex, Heading, Input, Stack, Text } from '@chakra-ui/react'
+import { createPortal } from 'react-dom'
+import { useOutletContext } from 'react-router-dom'
+import { Box, Button, Flex, Input, Stack, Text } from '@chakra-ui/react'
 import { Plus, Search, Users } from 'lucide-react'
 import { patientsApi } from '../api/patients'
 import useAuthFetch from '../hooks/useAuthFetch'
@@ -13,6 +15,7 @@ import { ListFeedback } from '../components/ui/Feedback'
 import { patientName } from '../utils/format'
 
 export default function PatientsPage() {
+    const { headerActions } = useOutletContext()
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
     const [form, setForm] = useState(null)
@@ -36,34 +39,20 @@ export default function PatientsPage() {
     }
     return (
         <Stack gap="7">
-            <Flex
-                justify="space-between"
-                align={{ base: 'start', sm: 'center' }}
-                gap="4"
-                wrap="wrap"
-            >
-                <Box>
-                    <Text
-                        color="blue.700"
-                        fontSize="xs"
-                        fontWeight="semibold"
-                        mb="2"
-                        letterSpacing="1px"
+            {headerActions &&
+                createPortal(
+                    <Button
+                        bg="blue.950"
+                        color="white"
+                        size={{ base: 'sm', sm: 'md' }}
+                        px={{ base: '3', sm: '5' }}
+                        onClick={() => setForm({})}
                     >
-                        DIRECTORIO CLÍNICO
-                    </Text>
-                    <Heading size="3xl" letterSpacing="-1px">
-                        Pacientes
-                    </Heading>
-                    <Text mt="2" color="gray.500" fontSize="sm">
-                        Toda la información de tus pacientes, en un solo lugar.
-                    </Text>
-                </Box>
-                <Button bg="blue.950" color="white" px="5" onClick={() => setForm({})}>
-                    <Plus size={17} />
-                    Nuevo paciente
-                </Button>
-            </Flex>
+                        <Plus size={17} />
+                        Nuevo paciente
+                    </Button>,
+                    headerActions,
+                )}
             <Box bg="white" rounded="xl" borderWidth="1px" borderColor="gray.200" overflow="hidden">
                 <Flex px="5" py="5" align="center" justify="space-between" gap="4" wrap="wrap">
                     <Flex gap="2" align="center">

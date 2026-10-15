@@ -1,79 +1,77 @@
-import { useState } from 'react'
-import { Box, Button, Checkbox, Heading, SimpleGrid, Stack, Text, Textarea } from '@chakra-ui/react'
-import { surgeriesApi } from '../../api/surgeries'
-import useAuthMutate from '../../hooks/useAuthMutate'
-import { checklist, eyeLabels, statusLabels, toDateTimeInput } from '../../utils/format'
-import FormDrawer from '../ui/FormDrawer'
+import {
+    Badge,
+    Box,
+    Button,
+    Checkbox,
+    CloseButton,
+    Dialog,
+    Flex,
+    Heading,
+    Portal,
+    SimpleGrid,
+    Stack,
+    Text,
+    Textarea,
+} from '@chakra-ui/react'
+import {
+    budgetStatusLabels,
+    checklist,
+    eyeLabels,
+    insurerLabels,
+    iolModelLabels,
+    surgeryTypeLabels,
+} from '../../utils/format'
+import { useSurgeryForm } from './utils'
 import FormField, { SelectInput } from '../ui/FormField'
 import { ErrorNotice } from '../ui/Feedback'
-import PatientFields, { emptyPatient, patientPayload } from '../patients/PatientFields'
-import PatientPicker from '../patients/PatientPicker'
+import PatientSelect from '../patients/PatientSelect'
+import PatientFields from '../patients/PatientFields'
 
-const defaults = {
-    hospital: '',
-    surgery_type: '',
-    eye: '',
-    scheduled_at: '',
-    insurer: '',
-    anesthesia: '',
-    amount: '',
-    iol_model: '',
-    iol_power: '',
-    status: 'PENDING',
-    lens_ordered: false,
-    lens_received: false,
-    lens_verified: false,
-    documentation_ready: false,
-    notes: '',
-}
-
-function Section({ number, title, children }) {
+function Section({ number, title, action, children }) {
     return (
         <Box>
-            <Heading size="sm" mb="4" display="flex" alignItems="center" gap="3">
-                <Text
-                    as="span"
-                    rounded="md"
-                    bg="blue.50"
-                    color="blue.800"
-                    px="2"
-                    py="1"
-                    fontSize="xs"
-                >
-                    {number}
-                </Text>
-                {title}
-            </Heading>
+            <Flex justify="space-between" align="center" gap="3" mb="4">
+                <Heading size="sm" display="flex" alignItems="center" gap="3">
+                    <Text
+                        as="span"
+                        rounded="md"
+                        bg="blue.50"
+                        color="blue.800"
+                        px="2"
+                        py="1"
+                        fontSize="xs"
+                    >
+                        {number}
+                    </Text>
+                    {title}
+                </Heading>
+                {action}
+            </Flex>
             {children}
         </Box>
     )
 }
 
 export default function SurgeryForm({ surgery, onClose }) {
-    const [value, setValue] = useState(() => ({
-        ...defaults,
-        ...Object.fromEntries(
-            Object.keys(defaults).map((key) => [key, surgery?.[key] ?? defaults[key]]),
-        ),
-        scheduled_at: toDateTimeInput(surgery?.scheduled_at),
-    }))
-    const [mode, setMode] = useState('existing')
-    const [selected, setSelected] = useState(surgery?.patient || null)
-    const [patient, setPatient] = useState(emptyPatient)
-    const [patientError, setPatientError] = useState('')
-    const mutation = useAuthMutate({
-        mutationFn: (data) =>
-            surgery ? surgeriesApi.update(surgery.id, data) : surgeriesApi.create(data),
-        invalidateKeys: [['surgeries'], ['patients']],
-        successMessage: surgery ? 'Cirugía actualizada' : 'Cirugía creada',
-        onSuccess: onClose,
-    })
-    const errors = mutation.error?.response?.data || {}
-    const change = (event) =>
-        setValue((current) => ({
-            ...current,
-            [event.target.name]: event.target.value,
-        }))
+    const {
+        value,
+        mode,
+        selected,
+        patient,
+        errors,
+        mutation,
+        change,
+        selectPatient,
+        changeMode,
+        changePatient,
+        changeChecklist,
+        submit,
+        surgeryState,
+        paymentKnown,
+        amountCents,
+        paidCents,
+        paymentBadge,
+    } = useSurgeryForm(surgery, onClose)
     const field = (name, label, props = {}) => (
         <FormField
             key={name}
@@ -85,198 +83,265 @@ export default function SurgeryForm({ surgery, onClose }) {
             {...props}
         />
     )
-    const submit = (event) => {
-        event.preventDefault()
-        if (mutation.isPending) return
-        if (mode === 'existing' && !selected) {
-            setPatientError('Selecciona un paciente antes de guardar.')
-            return
-        }
-        if (mode === 'new' && !patient.first_name.trim()) return
-        if (!value.hospital.trim() || !value.surgery_type.trim()) return
-        setPatientError('')
-        const data = {
-            ...value,
-            hospital: value.hospital.trim(),
-            surgery_type: value.surgery_type.trim(),
-            scheduled_at:
-                surgery && value.scheduled_at === toDateTimeInput(surgery.scheduled_at)
-                    ? surgery.scheduled_at
-                    : new Date(value.scheduled_at).toISOString(),
-            amount: value.amount === '' ? null : value.amount,
-            iol_power: value.iol_power === '' ? null : value.iol_power,
-        }
-        if (mode === 'new' && !surgery) data.patient = patientPayload(patient)
-        else data.patient_id = selected.id
-        mutation.mutate(data)
-    }
+    const selectField = (name, label, options, optional = true) => (
+        <FormField label={label} error={errors[name]}>
+            <SelectInput name={name} value={value[name]} onChange={change}>
+                {optional && <option value="">Sin seleccionar</option>}
+                {Object.entries(options).map(([key, text]) => (
+                    <option key={key} value={key}>
+                        {text}
+                    </option>
+                ))}
+            </SelectInput>
+        </FormField>
+    )
     return (
-        <FormDrawer
-            title={surgery ? 'Editar cirugía' : 'Nueva cirugía'}
-            description="Planificación, lente intraocular y preparación quirúrgica."
-            wide
-            onClose={onClose}
-            onSubmit={submit}
-            pending={mutation.isPending}
+        <Dialog.Root
+            open
+            placement="center"
+            size="xl"
+            scrollBehavior="inside"
+            onOpenChange={({ open }) => {
+                if (!open && !mutation.isPending) onClose()
+            }}
+            closeOnEscape={!mutation.isPending}
+            closeOnInteractOutside={!mutation.isPending}
         >
-            <Stack gap="8">
-                <ErrorNotice error={mutation.error} />
-                <Section number="01" title="Paciente">
-                    {!surgery && (
-                        <Box display="flex" gap="2" mb="4">
-                            <Button
-                                size="sm"
-                                variant={mode === 'existing' ? 'solid' : 'outline'}
-                                colorPalette="blue"
-                                onClick={() => {
-                                    setMode('existing')
-                                    setPatientError('')
-                                }}
-                            >
-                                Paciente existente
-                            </Button>
-                            <Button
-                                size="sm"
-                                variant={mode === 'new' ? 'solid' : 'outline'}
-                                colorPalette="blue"
-                                onClick={() => {
-                                    setMode('new')
-                                    setPatientError('')
-                                }}
-                            >
-                                Crear paciente
-                            </Button>
-                        </Box>
-                    )}
-                    {mode === 'existing' ? (
-                        <PatientPicker
-                            value={selected}
-                            onChange={(next) => {
-                                setSelected(next)
-                                setPatientError('')
-                            }}
-                        />
-                    ) : (
-                        <PatientFields
-                            value={patient}
-                            onChange={setPatient}
-                            errors={errors.patient}
-                        />
-                    )}
-                    {(patientError || errors.patient_id) && (
-                        <Text color="red.600" mt="2" fontSize="sm" role="alert">
-                            {patientError || String(errors.patient_id)}
-                        </Text>
-                    )}
-                </Section>
-                <Section number="02" title="Datos de la cirugía">
-                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
-                        {field('hospital', 'Hospital', {
-                            required: true,
-                            pattern: '.*\\S.*',
-                            maxLength: 255,
-                        })}
-                        {field('surgery_type', 'Tipo de cirugía', {
-                            required: true,
-                            pattern: '.*\\S.*',
-                            maxLength: 255,
-                        })}
-                        <FormField label="Ojo" required error={errors.eye}>
-                            <SelectInput name="eye" required value={value.eye} onChange={change}>
-                                <option value="">Selecciona un ojo</option>
-                                {Object.entries(eyeLabels).map(([key, label]) => (
-                                    <option key={key} value={key}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </SelectInput>
-                        </FormField>
-                        {field('scheduled_at', 'Fecha y hora programada', {
-                            required: true,
-                            type: 'datetime-local',
-                        })}
-                        {field('insurer', 'Aseguradora', { maxLength: 255 })}
-                        {field('anesthesia', 'Anestesia', { maxLength: 255 })}
-                        {field('amount', 'Importe (€)', {
-                            type: 'number',
-                            min: '0',
-                            max: '9999999999.99',
-                            step: '0.01',
-                        })}
-                    </SimpleGrid>
-                    <Text mt="3" fontSize="xs" color="gray.500">
-                        Fecha y hora en la zona horaria de este dispositivo; se envían con su
-                        equivalencia UTC.
-                    </Text>
-                </Section>
-                <Section number="03" title="Lente intraocular">
-                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
-                        {field('iol_model', 'Modelo', { maxLength: 255 })}
-                        {field('iol_power', 'Potencia (D)', {
-                            type: 'number',
-                            min: '-99999.99',
-                            max: '99999.99',
-                            step: '0.01',
-                        })}
-                    </SimpleGrid>
-                </Section>
-                <Section number="04" title="Estado y preparación">
-                    <Stack gap="5">
-                        <FormField label="Estado" error={errors.status}>
-                            <SelectInput name="status" value={value.status} onChange={change}>
-                                {Object.entries(statusLabels).map(([key, label]) => (
-                                    <option key={key} value={key}>
-                                        {label}
-                                    </option>
-                                ))}
-                            </SelectInput>
-                        </FormField>
-                        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
-                            {Object.entries(checklist).map(([key, label]) => (
-                                <Box key={key}>
-                                    <Checkbox.Root
-                                        colorPalette="blue"
-                                        checked={value[key]}
-                                        disabled={key === 'lens_verified' && !value.lens_received}
-                                        onCheckedChange={({ checked }) =>
-                                            setValue((current) => ({
-                                                ...current,
-                                                [key]: checked === true,
-                                                ...(key === 'lens_received' && !checked
-                                                    ? { lens_verified: false }
-                                                    : {}),
-                                            }))
-                                        }
-                                    >
-                                        <Checkbox.HiddenInput />
-                                        <Checkbox.Control />
-                                        <Checkbox.Label fontSize="sm">{label}</Checkbox.Label>
-                                    </Checkbox.Root>
-                                    {errors[key] && (
-                                        <Text color="red.600" fontSize="xs">
-                                            {String(errors[key])}
+            <Portal>
+                <Dialog.Backdrop />
+                <Dialog.Positioner>
+                    <Dialog.Content
+                        as="form"
+                        noValidate
+                        onSubmit={submit}
+                        bg="white"
+                        color="gray.800"
+                        mx="4"
+                    >
+                        <Dialog.Header borderBottomWidth="1px" py="6">
+                            <Dialog.Title fontSize="xl">
+                                {surgery ? 'Editar cirugía' : 'Nueva cirugía'}
+                            </Dialog.Title>
+                            <Dialog.Description mt="1">
+                                Planificación, lente intraocular y preparación quirúrgica.
+                            </Dialog.Description>
+                        </Dialog.Header>
+                        <Dialog.Body py="6">
+                            <Stack gap="8">
+                                <ErrorNotice error={mutation.error} />
+                                <Section
+                                    number="01"
+                                    title="Paciente"
+                                    action={
+                                        !surgery &&
+                                        mode === 'existing' && (
+                                            <Button
+                                                type="button"
+                                                variant="plain"
+                                                color="blue.700"
+                                                size="sm"
+                                                px="0"
+                                                disabled={mutation.isPending}
+                                                onClick={() => changeMode('new')}
+                                            >
+                                                + Crear nuevo
+                                            </Button>
+                                        )
+                                    }
+                                >
+                                    {mode === 'existing' ? (
+                                        <PatientSelect
+                                            value={selected}
+                                            disabled={mutation.isPending}
+                                            onChange={selectPatient}
+                                            onCreate={
+                                                !surgery ? () => changeMode('new') : undefined
+                                            }
+                                        />
+                                    ) : (
+                                        <Stack gap="3">
+                                            <PatientFields
+                                                value={patient}
+                                                onChange={changePatient}
+                                                errors={errors.patient}
+                                                showClinicalReference={false}
+                                            />
+                                            <Button
+                                                alignSelf="start"
+                                                size="sm"
+                                                variant="outline"
+                                                onClick={() => changeMode('existing')}
+                                            >
+                                                Buscar paciente existente
+                                            </Button>
+                                        </Stack>
+                                    )}
+                                    {errors.patient_id && (
+                                        <Text color="red.600" mt="2" fontSize="sm" role="alert">
+                                            {String(errors.patient_id)}
                                         </Text>
                                     )}
-                                </Box>
-                            ))}
-                        </SimpleGrid>
-                        <Text color="gray.500" fontSize="xs">
-                            La lente debe estar recibida para poder verificarla.
-                        </Text>
-                    </Stack>
-                </Section>
-                <Section number="05" title="Observaciones">
-                    <FormField label="Notas" error={errors.notes}>
-                        <Textarea
-                            name="notes"
-                            value={value.notes}
-                            onChange={change}
-                            rows={4}
-                            placeholder="Añade observaciones relevantes para la cirugía…"
-                        />
-                    </FormField>
-                </Section>
-            </Stack>
-        </FormDrawer>
+                                </Section>
+                                <Section number="02" title="Estado">
+                                    <SimpleGrid
+                                        columns={{ base: 1, sm: 2 }}
+                                        gap="5"
+                                        alignItems="center"
+                                    >
+                                        {selectField(
+                                            'budget_status',
+                                            'Estado del presupuesto',
+                                            budgetStatusLabels,
+                                            false,
+                                        )}
+                                        <Box>
+                                            <Text fontSize="sm" mb="2">
+                                                Estado de cirugía
+                                            </Text>
+                                            <Badge colorPalette={surgeryState.color}>
+                                                {surgeryState.label}
+                                            </Badge>
+                                        </Box>
+                                    </SimpleGrid>
+                                </Section>
+                                <Section number="03" title="Datos de la cirugía">
+                                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
+                                        {selectField(
+                                            'surgery_type',
+                                            'Tipo de cirugía',
+                                            surgeryTypeLabels,
+                                        )}
+                                        {selectField('eye', 'Ojo', eyeLabels)}
+                                        {field('scheduled_at', 'Fecha y hora programada', {
+                                            type: 'datetime-local',
+                                        })}
+                                        {selectField('insurer', 'Aseguradora', insurerLabels)}
+                                        {field('anesthesia', 'Anestesia', { maxLength: 255 })}
+                                    </SimpleGrid>
+                                </Section>
+                                <Section number="04" title="Lente intraocular">
+                                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
+                                        {selectField('iol_model', 'Modelo', iolModelLabels)}
+                                        {field('iol_power', 'Potencia (D)', {
+                                            type: 'number',
+                                            min: '-99999.99',
+                                            max: '99999.99',
+                                            step: '0.01',
+                                        })}
+                                    </SimpleGrid>
+                                </Section>
+                                <Section number="05" title="Observaciones">
+                                    <FormField label="Notas" error={errors.notes}>
+                                        <Textarea
+                                            name="notes"
+                                            value={value.notes}
+                                            onChange={change}
+                                            rows={value.notes ? 8 : 5}
+                                            minH={value.notes ? '200px' : '140px'}
+                                            autoresize
+                                            placeholder="Añade observaciones relevantes para la cirugía…"
+                                        />
+                                    </FormField>
+                                </Section>
+                                <Section number="06" title="Checklist de preparación">
+                                    <Stack gap="4">
+                                        {Object.entries(checklist).map(([key, label]) => (
+                                            <Box key={key}>
+                                                <Checkbox.Root
+                                                    colorPalette="blue"
+                                                    checked={value[key]}
+                                                    onCheckedChange={({ checked }) =>
+                                                        changeChecklist(key, checked)
+                                                    }
+                                                >
+                                                    <Checkbox.HiddenInput />
+                                                    <Checkbox.Control />
+                                                    <Checkbox.Label fontSize="sm">
+                                                        {label}
+                                                    </Checkbox.Label>
+                                                </Checkbox.Root>
+                                                {errors[key] && (
+                                                    <Text color="red.600" fontSize="xs">
+                                                        {String(errors[key])}
+                                                    </Text>
+                                                )}
+                                            </Box>
+                                        ))}
+                                    </Stack>
+                                </Section>
+                                <Section number="07" title="Economía">
+                                    <Stack gap="5">
+                                        <SimpleGrid columns={{ base: 1, sm: 3 }} gap="5">
+                                            {field('amount', 'Importe de cirugía (€)', {
+                                                type: 'number',
+                                                min: '0',
+                                                max: '9999999999.99',
+                                                step: '0.01',
+                                            })}
+                                            {field(
+                                                'operating_room_cost',
+                                                'Coste de quirófano (€)',
+                                                {
+                                                    type: 'number',
+                                                    min: '0',
+                                                    max: '9999999999.99',
+                                                    step: '0.01',
+                                                },
+                                            )}
+                                            {field('amount_paid', 'Importe cobrado (€)', {
+                                                type: 'number',
+                                                min: '0',
+                                                max:
+                                                    value.amount === ''
+                                                        ? '9999999999.99'
+                                                        : value.amount,
+                                                step: '0.01',
+                                            })}
+                                        </SimpleGrid>
+                                        <Box aria-live="polite">
+                                            <Text fontSize="sm" mb="2">
+                                                Estado de pago
+                                            </Text>
+                                            <Badge colorPalette={paymentBadge.color}>
+                                                {paymentBadge.label}
+                                            </Badge>
+                                            <Text fontSize="sm" mt="3">
+                                                Importe pendiente de cobro:{' '}
+                                                {paymentKnown
+                                                    ? new Intl.NumberFormat('es-ES', {
+                                                          style: 'currency',
+                                                          currency: 'EUR',
+                                                      }).format((amountCents - paidCents) / 100)
+                                                    : '—'}
+                                            </Text>
+                                        </Box>
+                                    </Stack>
+                                </Section>
+                            </Stack>
+                        </Dialog.Body>
+                        <Dialog.Footer borderTopWidth="1px">
+                            <Button
+                                variant="outline"
+                                onClick={onClose}
+                                disabled={mutation.isPending}
+                            >
+                                Cancelar
+                            </Button>
+                            <Button
+                                type="submit"
+                                bg="blue.900"
+                                color="white"
+                                loading={mutation.isPending}
+                            >
+                                Guardar cambios
+                            </Button>
+                        </Dialog.Footer>
+                        <Dialog.CloseTrigger asChild>
+                            <CloseButton size="sm" disabled={mutation.isPending} />
+                        </Dialog.CloseTrigger>
+                    </Dialog.Content>
+                </Dialog.Positioner>
+            </Portal>
+        </Dialog.Root>
     )
 }

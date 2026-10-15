@@ -1,6 +1,6 @@
 import { Box, Flex, Stack, Text } from '@chakra-ui/react'
 import { NavLink } from 'react-router-dom'
-import { Cat, ClipboardList, Users, ShieldCheck } from 'lucide-react'
+import { CalendarDays, Cat, ClipboardList, Users, ShieldCheck } from 'lucide-react'
 
 export default function Sidebar() {
     return (
@@ -54,6 +54,7 @@ export default function Sidebar() {
                 <Stack direction={{ base: 'row', md: 'column' }} gap="2">
                     {[
                         { to: '/surgeries', label: 'Cirugías', icon: ClipboardList },
+                        { to: '/calendar', label: 'Agenda', icon: CalendarDays },
                         { to: '/patients', label: 'Pacientes', icon: Users },
                     ].map(({ to, label, icon: Icon }) => (
                         <Box key={to} asChild>
