@@ -1,21 +1,28 @@
 {
-  "name": "cgato-front",
-  "private": true,
-  "version": "0.0.0",
-  "type": "module",
-  "scripts": {
-    "dev": "vite",
-    "build": "vite build",
-    "preview": "vite preview"
-  },
-  "dependencies": {
-    "@chakra-ui/react": "^3.37.0",
-    "@emotion/react": "^11.14.0",
-    "react": "^19.3.1",
-    "react-dom": "^19.3.1"
-  },
-  "devDependencies": {
-    "@vitejs/plugin-react": "^6.1.2",
-    "vite": "^8.3.4"
-  }
+    "name": "cgato-front",
+    "private": true,
+    "version": "0.0.0",
+    "type": "module",
+    "scripts": {
+        "dev": "vite",
+        "build": "vite build",
+        "preview": "vite preview",
+        "format": "prettier --write .",
+        "format:check": "prettier --check ."
+    },
+    "dependencies": {
+        "@chakra-ui/react": "^3.37.0",
+        "@emotion/react": "^11.14.0",
+        "@tanstack/react-query": "^5.104.3",
+        "axios": "^1.20.0",
+        "lucide-react": "^1.57.0",
+        "react": "^19.3.1",
+        "react-dom": "^19.3.1",
+        "react-router-dom": "^7.18.4"
+    },
+    "devDependencies": {
+        "@vitejs/plugin-react": "^6.1.2",
+        "prettier": "3.9.10",
+        "vite": "^8.3.4"
+    }
 }
