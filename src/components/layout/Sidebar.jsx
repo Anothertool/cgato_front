@@ -1,6 +1,7 @@
-import { Box, Flex, Stack, Text } from '@chakra-ui/react'
+import { Box, Flex, Image, Stack, Text } from '@chakra-ui/react'
 import { NavLink } from 'react-router-dom'
-import { CalendarDays, Cat, ClipboardList, Users, ShieldCheck } from 'lucide-react'
+import { CalendarDays, ClipboardList, Users, ShieldCheck, Wallet } from 'lucide-react'
+import cgatoLogo from '../../img/logo/cgato_logo.png'
 
 export default function Sidebar() {
     return (
@@ -17,21 +18,13 @@ export default function Sidebar() {
             zIndex="10"
         >
             <Flex px="7" py="7" align="center" gap="3">
-                <Flex
-                    align="center"
-                    justify="center"
-                    bg="blue.950"
-                    color="white"
-                    rounded="xl"
-                    boxSize="40px"
-                >
-                    <Text fontSize="xl" fontWeight="bold">
-                        C
-                    </Text>
-                    <Box ml="-1">
-                        <Cat size={22} strokeWidth={1.7} />
-                    </Box>
-                </Flex>
+                <Image
+                    src={cgatoLogo}
+                    alt="Logo de CGato"
+                    boxSize="56px"
+                    objectFit="contain"
+                    flexShrink="0"
+                />
                 <Text fontSize="2xl" fontWeight="bold" letterSpacing="-1px" color="blue.950">
                     CGato
                     <Text as="span" color="blue.500">
@@ -51,8 +44,9 @@ export default function Sidebar() {
                 >
                     GESTIÓN CLÍNICA
                 </Text>
-                <Stack direction={{ base: 'row', md: 'column' }} gap="2">
+                <Stack direction={{ base: 'row', md: 'column' }} gap="2" overflowX="auto">
                     {[
+                        { to: '/cash', label: 'Caja', icon: Wallet },
                         { to: '/surgeries', label: 'Cirugías', icon: ClipboardList },
                         { to: '/calendar', label: 'Agenda', icon: CalendarDays },
                         { to: '/patients', label: 'Pacientes', icon: Users },

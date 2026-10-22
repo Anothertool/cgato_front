@@ -14,8 +14,14 @@ export default function App() {
                 {pathname !== '/calendar' && (
                     <Header
                         actionRef={setHeaderActions}
-                        showBreadcrumbs={pathname === '/patients'}
-                        title={pathname === '/patients' ? 'Pacientes' : 'Cirugías'}
+                        showBreadcrumbs={pathname === '/patients' || pathname === '/cash'}
+                        title={
+                            pathname === '/cash'
+                                ? 'Caja'
+                                : pathname === '/patients'
+                                  ? 'Pacientes'
+                                  : 'Cirugías'
+                        }
                     />
                 )}
                 <Box as="main" px={{ base: '5', lg: '10' }} py="6" maxW="1800px" mx="auto">
