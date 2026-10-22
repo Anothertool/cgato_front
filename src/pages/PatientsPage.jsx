@@ -9,9 +9,7 @@ import useAuthDelete from '../hooks/useAuthDelete'
 import useDebouncedValue from '../hooks/useDebouncedValue'
 import PatientsTable from '../components/patients/PatientsTable'
 import PatientForm from '../components/patients/PatientForm'
-import Pagination from '../components/ui/Pagination'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
-import { ListFeedback } from '../components/ui/Feedback'
 import { patientName } from '../utils/format'
 
 export default function PatientsPage() {
@@ -77,25 +75,18 @@ export default function PatientsPage() {
                         />
                     </Flex>
                 </Flex>
-                <ListFeedback
-                    loading={query.isPending}
-                    error={query.error}
-                    empty={!query.data?.results?.length}
-                    onRetry={query.refetch}
-                    label="pacientes"
-                />
-                {!query.error && !!query.data?.results?.length && (
-                    <PatientsTable
-                        patients={query.data.results}
-                        onEdit={setForm}
-                        onDelete={requestDelete}
-                    />
-                )}
-                <Pagination
-                    data={query.data}
-                    page={page}
-                    onChange={setPage}
-                    loading={query.isFetching}
+                <PatientsTable
+                    patients={query.data?.results || []}
+                    onEdit={setForm}
+                    onDelete={requestDelete}
+                    pagination={{
+                        data: query.data,
+                        page,
+                        onChange: setPage,
+                        loading: query.isFetching,
+                        error: query.error,
+                        onRetry: query.refetch,
+                    }}
                 />
             </Box>
             {form && <PatientForm patient={form.id ? form : null} onClose={() => setForm(null)} />}

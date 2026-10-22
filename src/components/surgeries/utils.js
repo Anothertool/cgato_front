@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import * as yup from 'yup'
 import { surgeriesApi } from '../../api/surgeries'
 import useAuthMutate from '../../hooks/useAuthMutate'
@@ -15,6 +15,7 @@ import {
     toDateTimeInput,
 } from '../../utils/format'
 import { emptyPatient, patientPayload } from '../patients/PatientFields'
+import { toaster } from '../ui/toaster'
 
 export const initialValues = {
     surgery_type: '',
@@ -32,8 +33,7 @@ export const initialValues = {
     notes: '',
 }
 
-const optionalChoice = (labels) =>
-    yup.string().oneOf(['', ...Object.keys(labels)], 'Selecciona una opción válida.')
+const optionalChoice = (labels) => yup.string().oneOf(['', ...Object.keys(labels)], 'Selecciona una opción válida.')
 const decimal = (min, max) =>
     yup
         .number()
@@ -50,10 +50,10 @@ const decimal = (min, max) =>
         )
 
 export const surgerySchema = yup.object({
-    surgery_type: optionalChoice(surgeryTypeLabels),
-    eye: optionalChoice(eyeLabels),
+    surgery_type: optionalChoice(surgeryTypeLabels).required('Selecciona un tipo de cirugía.'),
+    eye: optionalChoice(eyeLabels).required('Selecciona un ojo.'),
     insurer: optionalChoice(insurerLabels),
-    iol_model: optionalChoice(iolModelLabels),
+    iol_model: optionalChoice(iolModelLabels).required('Selecciona un modelo de lente.'),
     budget_status: yup
         .string()
         .oneOf(Object.keys(budgetStatusLabels), 'Selecciona un estado válido.')
@@ -90,9 +90,7 @@ const formSchema = yup.object({
                     .trim()
                     .required('Introduce el nombre del paciente.')
                     .max(150, 'El nombre no puede superar los 150 caracteres.'),
-                last_name: yup
-                    .string()
-                    .max(150, 'Los apellidos no pueden superar los 150 caracteres.'),
+                last_name: yup.string().max(150, 'Los apellidos no pueden superar los 150 caracteres.'),
                 phone: yup.string().max(50, 'El teléfono no puede superar los 50 caracteres.'),
                 patient_source: yup
                     .string()
@@ -104,9 +102,7 @@ const formSchema = yup.object({
 
 export function getInitialValues(surgery) {
     return {
-        ...Object.fromEntries(
-            Object.entries(initialValues).map(([key, value]) => [key, surgery?.[key] ?? value]),
-        ),
+        ...Object.fromEntries(Object.entries(initialValues).map(([key, value]) => [key, surgery?.[key] ?? value])),
         scheduled_at: toDateTimeInput(surgery?.scheduled_at),
     }
 }
@@ -137,8 +133,7 @@ export function getPaymentState(value, surgery) {
         PAID: { label: 'Pagado', color: 'green' },
     }
     const amountUnchanged = surgery && value.amount === (surgery.amount ?? '')
-    const paymentBadge =
-        (amountUnchanged && badges[surgery.payment_status]) || badges[calculatedStatus]
+    const paymentBadge = (amountUnchanged && badges[surgery.payment_status]) || badges[calculatedStatus]
     const amountDue =
         amountUnchanged && surgery.amount_due != null
             ? surgery.amount_due
@@ -153,15 +148,10 @@ export function surgeryPayload(value, surgery, mode, selected, patient) {
     const data = {
         ...editableValues,
         ...Object.fromEntries(
-            [
-                'surgery_type',
-                'eye',
-                'insurer',
-                'iol_model',
-                'amount',
-                'operating_room_cost',
-                'iol_power',
-            ].map((key) => [key, value[key] === '' ? null : value[key]]),
+            ['surgery_type', 'eye', 'insurer', 'iol_model', 'amount', 'operating_room_cost', 'iol_power'].map((key) => [
+                key,
+                value[key] === '' ? null : value[key],
+            ]),
         ),
         scheduled_at: !value.scheduled_at
             ? null
@@ -174,18 +164,24 @@ export function surgeryPayload(value, surgery, mode, selected, patient) {
     return data
 }
 
-export function useSurgeryForm(surgery, onClose) {
+export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
+    const quoteWindow = useRef(null)
     const [value, setValue] = useState(() => getInitialValues(surgery))
     const [mode, setMode] = useState('existing')
     const [selected, setSelected] = useState(surgery?.patient || null)
     const [patient, setPatient] = useState(() => ({ ...emptyPatient }))
     const [validationErrors, setValidationErrors] = useState({})
     const mutation = useAuthMutate({
-        mutationFn: (data) =>
-            surgery ? surgeriesApi.update(surgery.id, data) : surgeriesApi.create(data),
+        mutationFn: (data) => (surgery ? surgeriesApi.update(surgery.id, data) : surgeriesApi.create(data)),
         invalidateKeys: [['surgeries'], ['patients']],
-        successMessage: surgery ? 'Cirugía actualizada' : 'Cirugía creada',
-        onSuccess: onClose,
+        successMessage: quoteOnly ? 'Presupuesto creado' : surgery ? 'Cirugía actualizada' : 'Cirugía creada',
+        onSuccess: (created) => {
+            if (quoteOnly && quoteWindow.current && !quoteWindow.current.closed) {
+                quoteWindow.current.location.replace(`/presupuesto/${encodeURIComponent(created.id)}`)
+            }
+            onClose()
+        },
+        onError: () => quoteWindow.current?.close(),
     })
     const errors = { ...mutation.error?.response?.data, ...validationErrors }
     const clearError = (name) => {
@@ -222,10 +218,14 @@ export function useSurgeryForm(surgery, onClose) {
         event.preventDefault()
         if (mutation.isPending) return
         try {
-            formSchema.validateSync(
-                { value, mode, selected, patient },
-                { abortEarly: false, context: { mode } },
-            )
+            const schema = quoteOnly
+                ? formSchema.shape({
+                      value: surgerySchema.shape({
+                          amount: decimal(0, 9999999999.99).required('Introduce el importe del presupuesto.'),
+                      }),
+                  })
+                : formSchema
+            schema.validateSync({ value, mode, selected, patient }, { abortEarly: false, context: { mode } })
         } catch (error) {
             if (!(error instanceof yup.ValidationError)) throw error
             const next = {}
@@ -242,7 +242,23 @@ export function useSurgeryForm(surgery, onClose) {
             return
         }
         setValidationErrors({})
-        mutation.mutate(surgeryPayload(value, surgery, mode, selected, patient))
+        let data = surgeryPayload(value, surgery, mode, selected, patient)
+        if (quoteOnly) {
+            quoteWindow.current = window.open('about:blank', '_blank')
+            if (!quoteWindow.current) {
+                toaster.create({ title: 'Permite las ventanas emergentes para abrir el presupuesto.', type: 'error' })
+                return
+            }
+            quoteWindow.current.opener = null
+            quoteWindow.current.document.title = 'Generando presupuesto'
+            quoteWindow.current.document.body.textContent = 'Guardando presupuesto…'
+            const fields = ['patient', 'patient_id', 'surgery_type', 'eye', 'iol_model', 'iol_power', 'amount']
+            data = {
+                ...Object.fromEntries(fields.filter((key) => key in data).map((key) => [key, data[key]])),
+                budget_status: 'QUOTED',
+            }
+        }
+        mutation.mutate(data)
     }
     const status = surgery?.display_status || value.budget_status
     return {

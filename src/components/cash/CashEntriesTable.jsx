@@ -1,112 +1,98 @@
-import { Badge, Box, Button, Stack, Table, Text } from '@chakra-ui/react'
+import { Badge, Button, Stack, Table, Text } from '@chakra-ui/react'
+import CommonTable from '../common/tables/CommonTable'
 import { formatDate, patientName } from '../../utils/format'
 import RecordActions from '../ui/RecordActions'
 import { surgeryOptionLabel } from '../surgeries/SurgerySelect'
 import { formatMoney, invoiceStatusColors, invoiceStatusLabels, paymentMethodLabels } from './utils'
 
-export default function CashEntriesTable({ entries, onEdit, onDelete, onOpenSurgery }) {
+export default function CashEntriesTable({ entries, onEdit, onDelete, onOpenSurgery, pagination }) {
     return (
-        <Box overflowX="auto">
-            <Table.Root size="md">
-                <Table.Header>
-                    <Table.Row bg="gray.50">
-                        {['Fecha', 'Asociado a', 'Método', 'Factura', 'Importe', 'Acciones'].map(
-                            (label) => (
-                                <Table.ColumnHeader
-                                    key={label}
-                                    px="5"
-                                    py="4"
-                                    color="gray.500"
-                                    fontSize="xs"
-                                    whiteSpace="nowrap"
-                                    textAlign={label === 'Importe' ? 'end' : 'start'}
-                                >
-                                    {label}
-                                </Table.ColumnHeader>
-                            ),
-                        )}
-                    </Table.Row>
-                </Table.Header>
-                <Table.Body>
-                    {entries.map((entry) => (
-                        <Table.Row key={entry.id} _hover={{ bg: 'gray.50' }}>
-                            <Table.Cell px="5" py="5" whiteSpace="nowrap" color="gray.600">
-                                {formatDate(`${entry.date}T00:00:00`)}
-                            </Table.Cell>
-                            <Table.Cell px="5" fontWeight="medium" whiteSpace="nowrap">
-                                {entry.surgery || entry.surgery_id ? (
-                                    <Stack gap="1">
-                                        <Text fontSize="xs" color="gray.500">
-                                            Cirugía
-                                        </Text>
-                                        <Button
-                                            type="button"
-                                            variant="plain"
-                                            color="blue.700"
-                                            fontSize="sm"
-                                            fontWeight="medium"
-                                            textDecoration="underline"
-                                            _hover={{ color: 'blue.900' }}
-                                            alignSelf="start"
-                                            h="auto"
-                                            p="0"
-                                            onClick={() =>
-                                                onOpenSurgery(
-                                                    typeof entry.surgery === 'object' &&
-                                                        entry.surgery
-                                                        ? entry.surgery
-                                                        : { id: entry.surgery_id || entry.surgery },
-                                                )
-                                            }
-                                        >
-                                            {surgeryOptionLabel(
+        <CommonTable label="cobros" pagination={pagination}>
+            <Table.Header>
+                <Table.Row bg="gray.50">
+                    {['Fecha', 'Asociado a', 'Método', 'Factura', 'Importe', 'Acciones'].map((label) => (
+                        <Table.ColumnHeader
+                            key={label}
+                            px="5"
+                            py="4"
+                            color="gray.500"
+                            fontSize="xs"
+                            whiteSpace="nowrap"
+                            textAlign={label === 'Importe' ? 'end' : 'start'}
+                        >
+                            {label}
+                        </Table.ColumnHeader>
+                    ))}
+                </Table.Row>
+            </Table.Header>
+            <Table.Body>
+                {entries.map((entry) => (
+                    <Table.Row key={entry.id} _hover={{ bg: 'gray.50' }}>
+                        <Table.Cell px="5" py="5" whiteSpace="nowrap" color="gray.600">
+                            {formatDate(`${entry.date}T00:00:00`)}
+                        </Table.Cell>
+                        <Table.Cell px="5" fontWeight="medium" whiteSpace="nowrap">
+                            {entry.surgery || entry.surgery_id ? (
+                                <Stack gap="1">
+                                    <Text fontSize="xs" color="gray.500">
+                                        Cirugía
+                                    </Text>
+                                    <Button
+                                        type="button"
+                                        variant="plain"
+                                        color="blue.700"
+                                        fontSize="sm"
+                                        fontWeight="medium"
+                                        textDecoration="underline"
+                                        _hover={{ color: 'blue.900' }}
+                                        alignSelf="start"
+                                        h="auto"
+                                        p="0"
+                                        onClick={() =>
+                                            onOpenSurgery(
                                                 typeof entry.surgery === 'object' && entry.surgery
                                                     ? entry.surgery
                                                     : { id: entry.surgery_id || entry.surgery },
-                                            )}
-                                        </Button>
-                                    </Stack>
-                                ) : entry.patient ? (
-                                    patientName(entry.patient)
-                                ) : (
-                                    'Sin asociar'
-                                )}
-                            </Table.Cell>
-                            <Table.Cell px="5" color="gray.600">
-                                {paymentMethodLabels[entry.payment_method] || entry.payment_method}
-                            </Table.Cell>
-                            <Table.Cell px="5">
-                                <Stack gap="1" align="start">
-                                    <Text fontSize="sm">{entry.invoice_number || '—'}</Text>
-                                    <Badge
-                                        colorPalette={
-                                            invoiceStatusColors[entry.invoice_status] || 'gray'
+                                            )
                                         }
                                     >
-                                        {invoiceStatusLabels[entry.invoice_status] ||
-                                            entry.invoice_status}
-                                    </Badge>
+                                        {surgeryOptionLabel(
+                                            typeof entry.surgery === 'object' && entry.surgery
+                                                ? entry.surgery
+                                                : { id: entry.surgery_id || entry.surgery },
+                                        )}
+                                    </Button>
                                 </Stack>
-                            </Table.Cell>
-                            <Table.Cell
-                                px="5"
-                                textAlign="end"
-                                fontWeight="semibold"
-                                whiteSpace="nowrap"
-                            >
-                                {formatMoney(entry.amount)}
-                            </Table.Cell>
-                            <Table.Cell px="5">
-                                <RecordActions
-                                    label={`cobro del ${entry.date} de ${formatMoney(entry.amount)}`}
-                                    onEdit={() => onEdit(entry)}
-                                    onDelete={() => onDelete(entry)}
-                                />
-                            </Table.Cell>
-                        </Table.Row>
-                    ))}
-                </Table.Body>
-            </Table.Root>
-        </Box>
+                            ) : entry.patient ? (
+                                patientName(entry.patient)
+                            ) : (
+                                'Sin asociar'
+                            )}
+                        </Table.Cell>
+                        <Table.Cell px="5" color="gray.600">
+                            {paymentMethodLabels[entry.payment_method] || entry.payment_method}
+                        </Table.Cell>
+                        <Table.Cell px="5">
+                            <Stack gap="1" align="start">
+                                <Text fontSize="sm">{entry.invoice_number || '—'}</Text>
+                                <Badge colorPalette={invoiceStatusColors[entry.invoice_status] || 'gray'}>
+                                    {invoiceStatusLabels[entry.invoice_status] || entry.invoice_status}
+                                </Badge>
+                            </Stack>
+                        </Table.Cell>
+                        <Table.Cell px="5" textAlign="end" fontWeight="semibold" whiteSpace="nowrap">
+                            {formatMoney(entry.amount)}
+                        </Table.Cell>
+                        <Table.Cell px="5">
+                            <RecordActions
+                                label={`cobro del ${entry.date} de ${formatMoney(entry.amount)}`}
+                                onEdit={() => onEdit(entry)}
+                                onDelete={() => onDelete(entry)}
+                            />
+                        </Table.Cell>
+                    </Table.Row>
+                ))}
+            </Table.Body>
+        </CommonTable>
     )
 }

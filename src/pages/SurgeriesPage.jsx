@@ -13,15 +13,14 @@ import SurgeryForm from '../components/surgeries/SurgeryForm'
 import CashForm from '../components/cash/CashForm'
 import PatientPicker from '../components/patients/PatientPicker'
 import FormField, { SelectInput } from '../components/ui/FormField'
-import Pagination from '../components/ui/Pagination'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
-import { ListFeedback } from '../components/ui/Feedback'
 
 const emptyFilters = { budget_status: '', surgery_type: '', insurer: '', date: '' }
 
 export default function SurgeriesPage() {
     const { headerActions } = useOutletContext()
     const [page, setPage] = useState(1)
+    const [ordering, setOrdering] = useState('-created_at,-id')
     const [filters, setFilters] = useState(emptyFilters)
     const [patient, setPatient] = useState(null)
     const [pickerOpen, setPickerOpen] = useState(false)
@@ -30,6 +29,7 @@ export default function SurgeriesPage() {
     const [action, setAction] = useState(null)
     const params = {
         page,
+        ordering,
         ...(filters.budget_status ? { budget_status: filters.budget_status } : {}),
         ...(filters.surgery_type ? { surgery_type: filters.surgery_type } : {}),
         ...(filters.insurer ? { insurer: filters.insurer } : {}),
@@ -41,9 +41,7 @@ export default function SurgeriesPage() {
               }
             : {}),
     }
-    const query = useAuthFetch(['surgeries', params], ({ signal }) =>
-        surgeriesApi.getAll(params, signal),
-    )
+    const query = useAuthFetch(['surgeries', params], ({ signal }) => surgeriesApi.getAll(params, signal))
     const done = () => {
         setAction(null)
         setPage(1)
@@ -85,47 +83,67 @@ export default function SurgeriesPage() {
         complete.reset()
         setAction({ surgery, type })
     }
-    const activeMutation =
-        action?.type === 'cancel' ? cancel : action?.type === 'complete' ? complete : remove
+    const activeMutation = action?.type === 'cancel' ? cancel : action?.type === 'complete' ? complete : remove
     const pending = remove.isPending || cancel.isPending || complete.isPending || reopen.isPending
     const hasFilters = patient || Object.values(filters).some(Boolean)
     return (
         <Stack gap="7">
             {headerActions &&
                 createPortal(
-                    <Button
-                        bg="blue.950"
-                        color="white"
-                        size={{ base: 'sm', sm: 'md' }}
-                        px={{ base: '3', sm: '5' }}
-                        onClick={() => setForm({})}
-                    >
-                        <Plus size={17} />
-                        Nueva cirugía
-                    </Button>,
+                    <Flex gap="2" direction={{ base: 'column', sm: 'row' }}>
+                        <Button
+                            colorPalette="blue"
+                            variant="subtle"
+                            aria-label="Más presupuesto"
+                            size={{ base: 'sm', sm: 'md' }}
+                            px={{ base: '3', sm: '5' }}
+                            onClick={() => setForm({ quoteOnly: true })}
+                        >
+                            <Plus size={17} />
+                            Presupuesto
+                        </Button>
+                        <Button
+                            bg="blue.950"
+                            aria-label="Más cirugía"
+                            color="white"
+                            size={{ base: 'sm', sm: 'md' }}
+                            px={{ base: '3', sm: '5' }}
+                            onClick={() => setForm({})}
+                        >
+                            <Plus size={17} />
+                            Cirugía
+                        </Button>
+                    </Flex>,
                     headerActions,
                 )}
             <Box bg="white" rounded="xl" borderWidth="1px" borderColor="gray.200" overflow="hidden">
                 <Flex px="5" py="5" align="center" justify="space-between" gap="4" wrap="wrap">
-                    <Flex gap="2" align="center">
+                    <Flex gap="3" align="center" wrap="wrap" minW="0">
                         <CalendarDays size={18} />
                         <Text fontWeight="semibold" fontSize="sm">
                             Registro de cirugías
                         </Text>
-                        <Text fontSize="xs" color="gray.400" ml="2">
-                            Por fecha ascendente
-                        </Text>
+                        <Box w={{ base: 'full', sm: '300px' }}>
+                            <SelectInput
+                                aria-label="Ordenar cirugías"
+                                value={ordering}
+                                onChange={(event) => {
+                                    setOrdering(event.target.value)
+                                    setPage(1)
+                                }}
+                            >
+                                <option value="-created_at,-id">Creadas más recientes</option>
+                                <option value="created_at,id">Creadas más antiguas</option>
+                                <option value="-scheduled_at,-id">Fecha de cirugía más reciente</option>
+                                <option value="scheduled_at,id">Fecha de cirugía más antigua</option>
+                            </SelectInput>
+                        </Box>
                     </Flex>
-                    <Popover.Root
-                        open={pickerOpen}
-                        onOpenChange={({ open }) => setPickerOpen(open)}
-                    >
+                    <Popover.Root open={pickerOpen} onOpenChange={({ open }) => setPickerOpen(open)}>
                         <Popover.Trigger asChild>
                             <Button variant="outline" size="sm" maxW="full">
                                 <Search size={15} />
-                                <Text truncate>
-                                    {patient ? patientName(patient) : 'Buscar paciente'}
-                                </Text>
+                                <Text truncate>{patient ? patientName(patient) : 'Buscar paciente'}</Text>
                             </Button>
                         </Popover.Trigger>
                         <Popover.Positioner>
@@ -153,11 +171,7 @@ export default function SurgeriesPage() {
                             ['insurer', 'Aseguradora', insurerLabels],
                         ].map(([name, label, options]) => (
                             <FormField key={name} label={label}>
-                                <SelectInput
-                                    name={name}
-                                    value={filters[name]}
-                                    onChange={updateFilter}
-                                >
+                                <SelectInput name={name} value={filters[name]} onChange={updateFilter}>
                                     <option value="">Todos</option>
                                     {Object.entries(options).map(([key, text]) => (
                                         <option key={key} value={key}>
@@ -168,13 +182,7 @@ export default function SurgeriesPage() {
                             </FormField>
                         ))}
                         <FormField label="Fecha de cirugía">
-                            <Input
-                                type="date"
-                                name="date"
-                                value={filters.date}
-                                onChange={updateFilter}
-                                size="sm"
-                            />
+                            <Input type="date" name="date" value={filters.date} onChange={updateFilter} size="sm" />
                         </FormField>
                         <Button
                             variant="ghost"
@@ -191,33 +199,32 @@ export default function SurgeriesPage() {
                         </Button>
                     </SimpleGrid>
                 </Box>
-                <ListFeedback
-                    loading={query.isPending}
-                    error={query.error}
-                    empty={!query.data?.results?.length}
-                    onRetry={query.refetch}
-                    label="cirugías"
-                />
-                {!query.error && !!query.data?.results?.length && (
-                    <SurgeriesTable
-                        surgeries={query.data.results}
-                        onEdit={setForm}
-                        onCharge={setCharging}
-                        onDelete={(surgery) => requestAction(surgery, 'delete')}
-                        onCancel={(surgery) => requestAction(surgery, 'cancel')}
-                        onComplete={(surgery) => requestAction(surgery, 'complete')}
-                        onReopen={(surgery) => reopen.mutate(surgery.id)}
-                        pending={pending}
-                    />
-                )}
-                <Pagination
-                    data={query.data}
-                    page={page}
-                    onChange={setPage}
-                    loading={query.isFetching}
+                <SurgeriesTable
+                    surgeries={query.data?.results || []}
+                    onEdit={setForm}
+                    onCharge={setCharging}
+                    onDelete={(surgery) => requestAction(surgery, 'delete')}
+                    onCancel={(surgery) => requestAction(surgery, 'cancel')}
+                    onComplete={(surgery) => requestAction(surgery, 'complete')}
+                    onReopen={(surgery) => reopen.mutate(surgery.id)}
+                    pending={pending}
+                    pagination={{
+                        data: query.data,
+                        page,
+                        onChange: setPage,
+                        loading: query.isFetching,
+                        error: query.error,
+                        onRetry: query.refetch,
+                    }}
                 />
             </Box>
-            {form && <SurgeryForm surgery={form.id ? form : null} onClose={() => setForm(null)} />}
+            {form && (
+                <SurgeryForm
+                    surgery={form.id ? form : null}
+                    quoteOnly={!!form.quoteOnly}
+                    onClose={() => setForm(null)}
+                />
+            )}
             {charging && <CashForm surgery={charging} onClose={() => setCharging(null)} />}
             {action && (
                 <ConfirmDialog

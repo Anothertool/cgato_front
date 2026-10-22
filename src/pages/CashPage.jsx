@@ -11,8 +11,7 @@ import CashForm from '../components/cash/CashForm'
 import CashEntriesTable from '../components/cash/CashEntriesTable'
 import SurgeryForm from '../components/surgeries/SurgeryForm'
 import { formatMoney, todayDate } from '../components/cash/utils'
-import { ErrorNotice, ListFeedback } from '../components/ui/Feedback'
-import Pagination from '../components/ui/Pagination'
+import { ErrorNotice } from '../components/ui/Feedback'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
 import { formatDate } from '../utils/format'
 
@@ -27,9 +26,7 @@ export default function CashPage() {
     const [deleting, setDeleting] = useState(null)
     const term = useDebouncedValue(search.trim())
     const params = { page, ...(date ? { date } : {}), ...(term ? { search: term } : {}) }
-    const query = useAuthFetch(['cash', 'entries', params], ({ signal }) =>
-        cashApi.getAll(params, signal),
-    )
+    const query = useAuthFetch(['cash', 'entries', params], ({ signal }) => cashApi.getAll(params, signal))
     const summaryDate = date || today
     const summaryDateLabel = formatDate(`${summaryDate}T00:00:00`)
     const summary = useAuthFetch(['cash', 'summary', { date: summaryDate }], ({ signal }) =>
@@ -76,12 +73,7 @@ export default function CashPage() {
                         Wallet,
                         `Cobros del ${summaryDateLabel}`,
                     ],
-                    [
-                        'total_week',
-                        'Total semana',
-                        CalendarDays,
-                        `Semana del ${summaryDateLabel} · De lunes a domingo`,
-                    ],
+                    ['total_week', 'Total semana', CalendarDays, `Semana del ${summaryDateLabel} · De lunes a domingo`],
                     [
                         'cash_today',
                         summaryDate === today ? 'Efectivo hoy' : 'Efectivo del día',
@@ -89,14 +81,7 @@ export default function CashPage() {
                         `Cobros en efectivo del ${summaryDateLabel}`,
                     ],
                 ].map(([key, label, Icon, description]) => (
-                    <Box
-                        key={key}
-                        bg="white"
-                        borderWidth="1px"
-                        borderColor="gray.200"
-                        rounded="xl"
-                        p="5"
-                    >
+                    <Box key={key} bg="white" borderWidth="1px" borderColor="gray.200" rounded="xl" p="5">
                         <Flex justify="space-between" align="center" gap="3" mb="4">
                             <Text color="gray.500" fontSize="sm" fontWeight="medium">
                                 {label}
@@ -106,12 +91,7 @@ export default function CashPage() {
                             </Box>
                         </Flex>
                         <Skeleton loading={summary.isPending} minH="9">
-                            <Text
-                                fontSize="2xl"
-                                color="blue.950"
-                                fontWeight="bold"
-                                aria-live="polite"
-                            >
+                            <Text fontSize="2xl" color="blue.950" fontWeight="bold" aria-live="polite">
                                 {formatMoney(summary.isError ? null : summary.data?.[key])}
                             </Text>
                         </Skeleton>
@@ -169,35 +149,26 @@ export default function CashPage() {
                         />
                     </Flex>
                 </Flex>
-                <ListFeedback
-                    loading={query.isPending}
-                    error={query.error}
-                    empty={!query.data?.results?.length}
-                    onRetry={query.refetch}
-                    label="cobros"
-                />
-                {!query.error && !!query.data?.results?.length && (
-                    <CashEntriesTable
-                        entries={query.data.results}
-                        onOpenSurgery={setSurgery}
-                        onEdit={setForm}
-                        onDelete={(entry) => {
-                            remove.reset()
-                            setDeleting(entry)
-                        }}
-                    />
-                )}
-                <Pagination
-                    data={query.data}
-                    page={page}
-                    onChange={setPage}
-                    loading={query.isFetching}
+                <CashEntriesTable
+                    entries={query.data?.results || []}
+                    onOpenSurgery={setSurgery}
+                    onEdit={setForm}
+                    onDelete={(entry) => {
+                        remove.reset()
+                        setDeleting(entry)
+                    }}
+                    pagination={{
+                        data: query.data,
+                        page,
+                        onChange: setPage,
+                        loading: query.isFetching,
+                        error: query.error,
+                        onRetry: query.refetch,
+                    }}
                 />
             </Box>
             {form && <CashForm entry={form.id ? form : null} onClose={() => setForm(null)} />}
-            {surgery && (
-                <SurgeryForm key={surgery.id} surgery={surgery} onClose={() => setSurgery(null)} />
-            )}
+            {surgery && <SurgeryForm key={surgery.id} surgery={surgery} onClose={() => setSurgery(null)} />}
             {deleting && (
                 <ConfirmDialog
                     title="Eliminar cobro"

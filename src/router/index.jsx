@@ -4,8 +4,10 @@ import PatientsPage from '../pages/PatientsPage'
 import SurgeriesPage from '../pages/SurgeriesPage'
 import CalendarPage from '../pages/CalendarPage'
 import CashPage from '../pages/CashPage'
+import SurgeryQuotePage from '../pages/SurgeryQuotePage'
 
 export const router = createBrowserRouter([
+    { path: '/presupuesto/:id', element: <SurgeryQuotePage /> },
     {
         element: <App />,
         children: [

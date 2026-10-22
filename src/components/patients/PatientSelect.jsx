@@ -12,12 +12,15 @@ export default function PatientSelect({ value, onChange, onCreate, disabled }) {
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
     const [menuOpen, setMenuOpen] = useState(false)
-    const term = useDebouncedValue(search.trim(), 3000)
-    const ready = search.trim().length >= 3 && search.trim() === term
+    const trimmedSearch = search.trim()
+    const debouncedSearch = useDebouncedValue(trimmedSearch, 300)
+    const term = trimmedSearch ? debouncedSearch : ''
+    const ready = !trimmedSearch || (trimmedSearch.length >= 3 && trimmedSearch === term)
+    const params = { search: term, page, page_size: 10, ordering: '-created_at,-id' }
     const query = useAuthFetch(
-        ['patients', 'select', { search: term, page }],
-        ({ signal }) => patientsApi.getAll({ search: term, page }, signal),
-        { enabled: ready },
+        ['patients', 'select', params],
+        ({ signal }) => patientsApi.getAll(params, signal),
+        { enabled: menuOpen && ready && !disabled },
     )
     const options =
         ready && query.isSuccess && !query.isFetching
@@ -27,7 +30,7 @@ export default function PatientSelect({ value, onChange, onCreate, disabled }) {
                   patient,
               }))
             : []
-    if (ready && query.isSuccess && !query.isFetching && !options.length && onCreate) {
+    if (ready && term && query.isSuccess && !query.isFetching && !options.length && onCreate) {
         options.push({ value: 'create-patient', label: 'Crear paciente', create: true })
     }
     return (
@@ -73,23 +76,32 @@ export default function PatientSelect({ value, onChange, onCreate, disabled }) {
                     }}
                     options={options}
                     filterOption={null}
-                    menuIsOpen={menuOpen && search.trim().length >= 3}
-                    onMenuOpen={() => setMenuOpen(true)}
+                    menuIsOpen={menuOpen}
+                    onMenuOpen={() => {
+                        setPage(1)
+                        setMenuOpen(true)
+                    }}
                     onMenuClose={() => setMenuOpen(false)}
-                    isLoading={search.trim().length >= 3 && (!ready || query.isFetching)}
-                    placeholder="Escribe al menos tres letras para buscar…"
+                    isLoading={
+                        menuOpen &&
+                        (!trimmedSearch || trimmedSearch.length >= 3) &&
+                        (!ready || query.isFetching)
+                    }
+                    placeholder="Selecciona un paciente o escribe al menos tres letras…"
                     loadingMessage={() => 'Buscando pacientes…'}
                     noOptionsMessage={() =>
-                        query.isError
-                            ? 'No se pudo buscar pacientes'
-                            : !ready
-                              ? 'Esperando para buscar…'
-                              : 'No se encontraron pacientes'
+                        trimmedSearch && trimmedSearch.length < 3
+                            ? 'Escribe al menos tres letras para buscar…'
+                            : query.isError
+                              ? 'No se pudo buscar pacientes'
+                              : !ready
+                                ? 'Esperando para buscar…'
+                                : 'No se encontraron pacientes'
                     }
                 />
             </Box>
-            {ready && <ErrorNotice error={query.error} />}
-            {ready && query.data && (
+            {menuOpen && ready && <ErrorNotice error={query.error} />}
+            {menuOpen && ready && query.data && (
                 <Pagination
                     data={query.data}
                     page={page}
