@@ -1,4 +1,5 @@
-import { Badge, Box, Flex, Table, Text } from '@chakra-ui/react'
+import { Badge, Box, Flex, IconButton, Table, Text } from '@chakra-ui/react'
+import { LuBanknote } from 'react-icons/lu'
 import {
     budgetStatusLabels,
     checklist,
@@ -26,12 +27,14 @@ const currencyFormatter = new Intl.NumberFormat('es-ES', {
 export default function SurgeriesTable({
     surgeries,
     onEdit,
+    onCharge,
     onDelete,
     onCancel,
     onComplete,
     onReopen,
     pending,
-}) {
+}) 
+{
     return (
         <Box overflowX="auto">
             <Table.Root size="sm">
@@ -178,41 +181,54 @@ export default function SurgeriesTable({
                                     </Flex>
                                 </Table.Cell>
                                 <Table.Cell px="4">
-                                    <RecordActions
-                                        label={patientName(surgery.patient)}
-                                        disabled={pending}
-                                        onComplete={
-                                            [
-                                                'QUOTED',
-                                                'ACCEPTED',
-                                                'LOST',
-                                                'SCHEDULED',
-                                                'AWAITING_CONFIRMATION',
-                                            ].includes(surgery.display_status)
-                                                ? () => onComplete(surgery)
-                                                : undefined
-                                        }
-                                        onReopen={
-                                            ['CANCELLED', 'COMPLETED'].includes(
-                                                surgery.display_status,
-                                            )
-                                                ? () => onReopen(surgery)
-                                                : undefined
-                                        }
-                                        onEdit={() => onEdit(surgery)}
-                                        onDelete={() => onDelete(surgery)}
-                                        onCancel={
-                                            [
-                                                'QUOTED',
-                                                'ACCEPTED',
-                                                'LOST',
-                                                'SCHEDULED',
-                                                'AWAITING_CONFIRMATION',
-                                            ].includes(surgery.display_status)
-                                                ? () => onCancel(surgery)
-                                                : undefined
-                                        }
-                                    />
+                                    <Flex align="center" gap="1">
+                                        <IconButton
+                                            aria-label={`Registrar cobro de ${patientName(surgery.patient)}`}
+                                            title="Registrar cobro"
+                                            size="sm"
+                                            variant="ghost"
+                                            colorPalette="green"
+                                            disabled={pending}
+                                            onClick={() => onCharge(surgery)}
+                                        >
+                                            <LuBanknote size={18} />
+                                        </IconButton>
+                                        <RecordActions
+                                            label={patientName(surgery.patient)}
+                                            disabled={pending}
+                                            onComplete={
+                                                [
+                                                    'QUOTED',
+                                                    'ACCEPTED',
+                                                    'LOST',
+                                                    'SCHEDULED',
+                                                    'AWAITING_CONFIRMATION',
+                                                ].includes(surgery.display_status)
+                                                    ? () => onComplete(surgery)
+                                                    : undefined
+                                            }
+                                            onReopen={
+                                                ['CANCELLED', 'COMPLETED'].includes(
+                                                    surgery.display_status,
+                                                )
+                                                    ? () => onReopen(surgery)
+                                                    : undefined
+                                            }
+                                            onEdit={() => onEdit(surgery)}
+                                            onDelete={() => onDelete(surgery)}
+                                            onCancel={
+                                                [
+                                                    'QUOTED',
+                                                    'ACCEPTED',
+                                                    'LOST',
+                                                    'SCHEDULED',
+                                                    'AWAITING_CONFIRMATION',
+                                                ].includes(surgery.display_status)
+                                                    ? () => onCancel(surgery)
+                                                    : undefined
+                                            }
+                                        />
+                                    </Flex>
                                 </Table.Cell>
                             </Table.Row>
                         )

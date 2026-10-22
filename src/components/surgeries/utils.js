@@ -24,7 +24,7 @@ export const initialValues = {
     anesthesia: '',
     amount: '',
     operating_room_cost: '',
-    amount_paid: '',
+    amount_paid: '0.00',
     iol_model: '',
     iol_power: '',
     budget_status: 'QUOTED',
@@ -66,17 +66,6 @@ export const surgerySchema = yup.object({
     anesthesia: yup.string().max(255, 'La anestesia no puede superar los 255 caracteres.'),
     amount: decimal(0, 9999999999.99),
     operating_room_cost: decimal(0, 9999999999.99),
-    amount_paid: decimal(0, 9999999999.99).test(
-        'paid-amount',
-        'El importe cobrado no puede superar el importe de la cirugía.',
-        function (value) {
-            return (
-                value == null ||
-                this.parent.amount == null ||
-                Math.round(value * 100) <= Math.round(this.parent.amount * 100)
-            )
-        },
-    ),
     iol_power: decimal(-99999.99, 99999.99),
     notes: yup.string(),
     ...Object.fromEntries(Object.keys(checklist).map((key) => [key, yup.boolean().required()])),
@@ -122,7 +111,7 @@ export function getInitialValues(surgery) {
     }
 }
 
-export function getPaymentState(value) {
+export function getPaymentState(value, surgery) {
     // Compare integer cents to avoid decimal rounding errors.
     const amountCents = Math.round(Number(value.amount) * 100)
     const paidCents = Math.round(Number(value.amount_paid) * 100)
@@ -134,7 +123,7 @@ export function getPaymentState(value) {
         amountCents >= 0 &&
         paidCents >= 0 &&
         paidCents <= amountCents
-    const status = !paymentKnown
+    const calculatedStatus = !paymentKnown
         ? 'UNKNOWN'
         : paidCents === amountCents
           ? 'PAID'
@@ -147,12 +136,22 @@ export function getPaymentState(value) {
         PARTIAL: { label: 'Pago parcial', color: 'blue' },
         PAID: { label: 'Pagado', color: 'green' },
     }
-    return { paymentKnown, amountCents, paidCents, paymentBadge: badges[status] }
+    const amountUnchanged = surgery && value.amount === (surgery.amount ?? '')
+    const paymentBadge =
+        (amountUnchanged && badges[surgery.payment_status]) || badges[calculatedStatus]
+    const amountDue =
+        amountUnchanged && surgery.amount_due != null
+            ? surgery.amount_due
+            : paymentKnown
+              ? (amountCents - paidCents) / 100
+              : null
+    return { paymentKnown, amountCents, paidCents, paymentBadge, amountDue }
 }
 
 export function surgeryPayload(value, surgery, mode, selected, patient) {
+    const { amount_paid, ...editableValues } = value
     const data = {
-        ...value,
+        ...editableValues,
         ...Object.fromEntries(
             [
                 'surgery_type',
@@ -161,7 +160,6 @@ export function surgeryPayload(value, surgery, mode, selected, patient) {
                 'iol_model',
                 'amount',
                 'operating_room_cost',
-                'amount_paid',
                 'iol_power',
             ].map((key) => [key, value[key] === '' ? null : value[key]]),
         ),
@@ -264,6 +262,6 @@ export function useSurgeryForm(surgery, onClose) {
             label: statusLabels[status] || status,
             color: statusColors[status] || 'gray',
         },
-        ...getPaymentState(value),
+        ...getPaymentState(value, surgery),
     }
 }

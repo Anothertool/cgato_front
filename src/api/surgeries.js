@@ -1,6 +1,8 @@
 import client from './client'
 
 export const surgeriesApi = {
+    getOptions: (params, signal) =>
+        client.get('/api/surgeries/options/', { params, signal }).then(({ data }) => data),
     getAll: (params, signal) =>
         client.get('/api/surgeries/', { params, signal }).then(({ data }) => data),
     getDay: async ({ start, end }, signal) => {
@@ -39,7 +41,8 @@ export const surgeriesApi = {
         } while (data.next)
         return surgeries
     },
-    getById: (id) => client.get(`/api/surgeries/${id}/`).then(({ data }) => data),
+    getById: (id, signal) =>
+        client.get(`/api/surgeries/${id}/`, { signal }).then(({ data }) => data),
     create: (data) => client.post('/api/surgeries/', data).then(({ data }) => data),
     update: (id, data) => client.patch(`/api/surgeries/${id}/`, data).then(({ data }) => data),
     remove: (id) => client.delete(`/api/surgeries/${id}/`),

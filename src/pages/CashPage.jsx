@@ -2,34 +2,42 @@ import { useState } from 'react'
 import { createPortal } from 'react-dom'
 import { useOutletContext } from 'react-router-dom'
 import { Box, Button, Flex, Input, SimpleGrid, Skeleton, Stack, Text } from '@chakra-ui/react'
-import { Banknote, CalendarDays, Plus, Wallet } from 'lucide-react'
+import { Banknote, CalendarDays, Plus, Search, Wallet } from 'lucide-react'
 import { cashApi } from '../api/cash'
 import useAuthFetch from '../hooks/useAuthFetch'
 import useAuthDelete from '../hooks/useAuthDelete'
+import useDebouncedValue from '../hooks/useDebouncedValue'
 import CashForm from '../components/cash/CashForm'
 import CashEntriesTable from '../components/cash/CashEntriesTable'
+import SurgeryForm from '../components/surgeries/SurgeryForm'
 import { formatMoney, todayDate } from '../components/cash/utils'
 import { ErrorNotice, ListFeedback } from '../components/ui/Feedback'
 import Pagination from '../components/ui/Pagination'
 import ConfirmDialog from '../components/ui/ConfirmDialog'
+import { formatDate } from '../utils/format'
 
 export default function CashPage() {
     const { headerActions } = useOutletContext()
     const today = todayDate()
     const [date, setDate] = useState(todayDate)
+    const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
     const [form, setForm] = useState(null)
+    const [surgery, setSurgery] = useState(null)
     const [deleting, setDeleting] = useState(null)
-    const params = { page, ...(date ? { date } : {}) }
+    const term = useDebouncedValue(search.trim())
+    const params = { page, ...(date ? { date } : {}), ...(term ? { search: term } : {}) }
     const query = useAuthFetch(['cash', 'entries', params], ({ signal }) =>
         cashApi.getAll(params, signal),
     )
-    const summary = useAuthFetch(['cash', 'summary', { date: today }], ({ signal }) =>
-        cashApi.getSummary({ date: today }, signal),
+    const summaryDate = date || today
+    const summaryDateLabel = formatDate(`${summaryDate}T00:00:00`)
+    const summary = useAuthFetch(['cash', 'summary', { date: summaryDate }], ({ signal }) =>
+        cashApi.getSummary({ date: summaryDate }, signal),
     )
     const remove = useAuthDelete({
         mutationFn: cashApi.remove,
-        invalidateKeys: [['cash']],
+        invalidateKeys: [['cash'], ['surgeries']],
         successMessage: 'Cobro eliminado',
         onSuccess: () => {
             setDeleting(null)
@@ -62,9 +70,24 @@ export default function CashPage() {
             <ErrorNotice error={summary.error} onRetry={summary.refetch} />
             <SimpleGrid columns={{ base: 1, sm: 3 }} gap="5">
                 {[
-                    ['total_today', 'Total hoy', Wallet, 'Cobros del día'],
-                    ['total_week', 'Total semana', CalendarDays, 'De lunes a domingo'],
-                    ['cash_today', 'Efectivo hoy', Banknote, 'Cobros en efectivo del día'],
+                    [
+                        'total_today',
+                        summaryDate === today ? 'Total hoy' : 'Total del día',
+                        Wallet,
+                        `Cobros del ${summaryDateLabel}`,
+                    ],
+                    [
+                        'total_week',
+                        'Total semana',
+                        CalendarDays,
+                        `Semana del ${summaryDateLabel} · De lunes a domingo`,
+                    ],
+                    [
+                        'cash_today',
+                        summaryDate === today ? 'Efectivo hoy' : 'Efectivo del día',
+                        Banknote,
+                        `Cobros en efectivo del ${summaryDateLabel}`,
+                    ],
                 ].map(([key, label, Icon, description]) => (
                     <Box
                         key={key}
@@ -104,6 +127,22 @@ export default function CashPage() {
                         Movimientos
                     </Text>
                     <Flex align="center" gap="2" wrap="wrap">
+                        <Flex align="center" gap="2" w={{ base: 'full', sm: '280px' }}>
+                            <Box color="gray.400">
+                                <Search size={17} />
+                            </Box>
+                            <Input
+                                type="search"
+                                aria-label="Buscar cobros"
+                                placeholder="Buscar cobros…"
+                                size="sm"
+                                value={search}
+                                onChange={(event) => {
+                                    setSearch(event.target.value)
+                                    setPage(1)
+                                }}
+                            />
+                        </Flex>
                         <Button
                             size="sm"
                             variant={date === today ? 'solid' : 'outline'}
@@ -140,6 +179,7 @@ export default function CashPage() {
                 {!query.error && !!query.data?.results?.length && (
                     <CashEntriesTable
                         entries={query.data.results}
+                        onOpenSurgery={setSurgery}
                         onEdit={setForm}
                         onDelete={(entry) => {
                             remove.reset()
@@ -155,6 +195,9 @@ export default function CashPage() {
                 />
             </Box>
             {form && <CashForm entry={form.id ? form : null} onClose={() => setForm(null)} />}
+            {surgery && (
+                <SurgeryForm key={surgery.id} surgery={surgery} onClose={() => setSurgery(null)} />
+            )}
             {deleting && (
                 <ConfirmDialog
                     title="Eliminar cobro"

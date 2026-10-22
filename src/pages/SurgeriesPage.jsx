@@ -10,6 +10,7 @@ import useAuthDelete from '../hooks/useAuthDelete'
 import { budgetStatusLabels, insurerLabels, patientName, surgeryTypeLabels } from '../utils/format'
 import SurgeriesTable from '../components/surgeries/SurgeriesTable'
 import SurgeryForm from '../components/surgeries/SurgeryForm'
+import CashForm from '../components/cash/CashForm'
 import PatientPicker from '../components/patients/PatientPicker'
 import FormField, { SelectInput } from '../components/ui/FormField'
 import Pagination from '../components/ui/Pagination'
@@ -25,6 +26,7 @@ export default function SurgeriesPage() {
     const [patient, setPatient] = useState(null)
     const [pickerOpen, setPickerOpen] = useState(false)
     const [form, setForm] = useState(null)
+    const [charging, setCharging] = useState(null)
     const [action, setAction] = useState(null)
     const params = {
         page,
@@ -200,6 +202,7 @@ export default function SurgeriesPage() {
                     <SurgeriesTable
                         surgeries={query.data.results}
                         onEdit={setForm}
+                        onCharge={setCharging}
                         onDelete={(surgery) => requestAction(surgery, 'delete')}
                         onCancel={(surgery) => requestAction(surgery, 'cancel')}
                         onComplete={(surgery) => requestAction(surgery, 'complete')}
@@ -215,6 +218,7 @@ export default function SurgeriesPage() {
                 />
             </Box>
             {form && <SurgeryForm surgery={form.id ? form : null} onClose={() => setForm(null)} />}
+            {charging && <CashForm surgery={charging} onClose={() => setCharging(null)} />}
             {action && (
                 <ConfirmDialog
                     title={

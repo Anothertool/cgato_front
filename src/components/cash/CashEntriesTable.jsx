@@ -1,15 +1,16 @@
-import { Badge, Box, Stack, Table, Text } from '@chakra-ui/react'
+import { Badge, Box, Button, Stack, Table, Text } from '@chakra-ui/react'
 import { formatDate, patientName } from '../../utils/format'
 import RecordActions from '../ui/RecordActions'
+import { surgeryOptionLabel } from '../surgeries/SurgerySelect'
 import { formatMoney, invoiceStatusColors, invoiceStatusLabels, paymentMethodLabels } from './utils'
 
-export default function CashEntriesTable({ entries, onEdit, onDelete }) {
+export default function CashEntriesTable({ entries, onEdit, onDelete, onOpenSurgery }) {
     return (
         <Box overflowX="auto">
             <Table.Root size="md">
                 <Table.Header>
                     <Table.Row bg="gray.50">
-                        {['Fecha', 'Paciente', 'Método', 'Factura', 'Importe', 'Acciones'].map(
+                        {['Fecha', 'Asociado a', 'Método', 'Factura', 'Importe', 'Acciones'].map(
                             (label) => (
                                 <Table.ColumnHeader
                                     key={label}
@@ -33,7 +34,43 @@ export default function CashEntriesTable({ entries, onEdit, onDelete }) {
                                 {formatDate(`${entry.date}T00:00:00`)}
                             </Table.Cell>
                             <Table.Cell px="5" fontWeight="medium" whiteSpace="nowrap">
-                                {entry.patient ? patientName(entry.patient) : 'Sin paciente'}
+                                {entry.surgery || entry.surgery_id ? (
+                                    <Stack gap="1">
+                                        <Text fontSize="xs" color="gray.500">
+                                            Cirugía
+                                        </Text>
+                                        <Button
+                                            type="button"
+                                            variant="plain"
+                                            color="blue.700"
+                                            fontSize="sm"
+                                            fontWeight="medium"
+                                            textDecoration="underline"
+                                            _hover={{ color: 'blue.900' }}
+                                            alignSelf="start"
+                                            h="auto"
+                                            p="0"
+                                            onClick={() =>
+                                                onOpenSurgery(
+                                                    typeof entry.surgery === 'object' &&
+                                                        entry.surgery
+                                                        ? entry.surgery
+                                                        : { id: entry.surgery_id || entry.surgery },
+                                                )
+                                            }
+                                        >
+                                            {surgeryOptionLabel(
+                                                typeof entry.surgery === 'object' && entry.surgery
+                                                    ? entry.surgery
+                                                    : { id: entry.surgery_id || entry.surgery },
+                                            )}
+                                        </Button>
+                                    </Stack>
+                                ) : entry.patient ? (
+                                    patientName(entry.patient)
+                                ) : (
+                                    'Sin asociar'
+                                )}
                             </Table.Cell>
                             <Table.Cell px="5" color="gray.600">
                                 {paymentMethodLabels[entry.payment_method] || entry.payment_method}
