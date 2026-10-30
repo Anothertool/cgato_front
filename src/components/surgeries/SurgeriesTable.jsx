@@ -33,6 +33,7 @@ export default function SurgeriesTable({
     onCancel,
     onComplete,
     onReopen,
+    onApproveAndSchedule,
     pending,
     pagination,
 }) {
@@ -175,7 +176,16 @@ export default function SurgeriesTable({
                                     </IconButton>
                                     <RecordActions
                                         label={patientName(surgery.patient)}
+                                        quoteHref={`/presupuesto/${encodeURIComponent(surgery.id)}`}
                                         disabled={pending}
+                                        onApproveAndSchedule={
+                                            surgery.budget_status === 'QUOTED' &&
+                                            !surgery.cancelled_at &&
+                                            !['CANCELLED', 'COMPLETED'].includes(surgery.display_status) &&
+                                            onApproveAndSchedule
+                                                ? () => onApproveAndSchedule(surgery)
+                                                : undefined
+                                        }
                                         onComplete={
                                             [
                                                 'QUOTED',

@@ -1,10 +1,10 @@
 import client from './client'
 
 export const surgeriesApi = {
-    getOptions: (params, signal) =>
-        client.get('/api/surgeries/options/', { params, signal }).then(({ data }) => data),
-    getAll: (params, signal) =>
-        client.get('/api/surgeries/', { params, signal }).then(({ data }) => data),
+    getAvailability: (params, signal) =>
+        client.get('/api/surgeries/availability/', { params, signal }).then(({ data }) => data),
+    getOptions: (params, signal) => client.get('/api/surgeries/options/', { params, signal }).then(({ data }) => data),
+    getAll: (params, signal) => client.get('/api/surgeries/', { params, signal }).then(({ data }) => data),
     getDay: async ({ start, end }, signal) => {
         const params = {
             scheduled_at__gte: start,
@@ -21,28 +21,16 @@ export const surgeriesApi = {
         } while (data.next)
         return surgeries
     },
-    getCalendar: async ({ start, end }, signal) => {
-        // Django admite lte: el último microsegundo anterior equivale al end exclusivo.
-        const inclusiveEnd = new Date(new Date(end).getTime() - 1)
-            .toISOString()
-            .replace('.999Z', '.999999Z')
+    getCalendar: ({ start, end }, signal) => {
         const params = {
+            view: 'calendar',
             scheduled_at__gte: start,
-            scheduled_at__lte: inclusiveEnd,
-            ordering: 'scheduled_at,id',
+            scheduled_at__lt: end,
+            ordering: 'scheduled_at',
         }
-        const surgeries = []
-        let page = 1
-        let data
-        do {
-            data = await surgeriesApi.getAll({ ...params, page }, signal)
-            surgeries.push(...data.results)
-            page += 1
-        } while (data.next)
-        return surgeries
+        return surgeriesApi.getAll(params, signal)
     },
-    getById: (id, signal) =>
-        client.get(`/api/surgeries/${id}/`, { signal }).then(({ data }) => data),
+    getById: (id, signal) => client.get(`/api/surgeries/${id}/`, { signal }).then(({ data }) => data),
     create: (data) => client.post('/api/surgeries/', data).then(({ data }) => data),
     update: (id, data) => client.patch(`/api/surgeries/${id}/`, data).then(({ data }) => data),
     remove: (id) => client.delete(`/api/surgeries/${id}/`),

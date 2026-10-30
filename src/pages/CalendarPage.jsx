@@ -8,7 +8,7 @@ import { surgeriesApi } from '../api/surgeries'
 import useAuthFetch from '../hooks/useAuthFetch'
 import SurgeryForm from '../components/surgeries/SurgeryForm'
 import { ErrorNotice } from '../components/ui/Feedback'
-import { eyeLabels, patientName, surgeryTypeLabels } from '../utils/format'
+import { eyeLabels, surgeryTypeLabels } from '../utils/format'
 import { surgeryDayLabel, surgeryDayRange, surgeryDayRows } from '../utils/surgeryDayReport'
 import { showPdfPreview } from '../utils/pdfPreview'
 import { toaster } from '../components/ui/toaster'
@@ -87,7 +87,10 @@ export default function CalendarPage() {
                 .map((item) => ({
                     id: item.id,
                     start: item.scheduled_at,
-                    title: patientName(item.patient),
+                    title: item.patient_name,
+                    classNames: [
+                        item.has_payment === true ? 'surgery-with-payment' : 'surgery-without-payment',
+                    ],
                     extendedProps: { surgery: item },
                 })),
         [query.data],
@@ -185,9 +188,6 @@ export default function CalendarPage() {
                     '--fc-button-hover-border-color': '{colors.blue.800}',
                     '--fc-button-active-bg-color': '{colors.blue.900}',
                     '--fc-button-active-border-color': '{colors.blue.900}',
-                    '--fc-event-bg-color': '{colors.blue.50}',
-                    '--fc-event-border-color': '{colors.blue.200}',
-                    '--fc-event-text-color': '{colors.blue.950}',
                     '& .fc': { fontFamily: 'inherit', fontSize: 'sm' },
                     '& .fc .fc-toolbar': {
                         flexWrap: 'wrap',
@@ -204,6 +204,16 @@ export default function CalendarPage() {
                         fontSize: 'xs',
                     },
                     '& .fc .fc-event': { cursor: 'pointer', borderRadius: 'md' },
+                    '& .fc .surgery-with-payment': {
+                        '--fc-event-bg-color': '{colors.green.100}',
+                        '--fc-event-border-color': '{colors.green.200}',
+                        '--fc-event-text-color': '{colors.green.950}',
+                    },
+                    '& .fc .surgery-without-payment': {
+                        '--fc-event-bg-color': '{colors.orange.100}',
+                        '--fc-event-border-color': '{colors.orange.200}',
+                        '--fc-event-text-color': '{colors.orange.950}',
+                    },
                     '& .fc .fc-daygrid-day': {
                         cursor: 'pointer',
                         _hover: { bg: 'blue.100' },

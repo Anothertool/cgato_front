@@ -202,6 +202,7 @@ export default function SurgeriesPage() {
                 <SurgeriesTable
                     surgeries={query.data?.results || []}
                     onEdit={setForm}
+                    onApproveAndSchedule={(surgery) => setForm({ ...surgery, scheduleOnly: true })}
                     onCharge={setCharging}
                     onDelete={(surgery) => requestAction(surgery, 'delete')}
                     onCancel={(surgery) => requestAction(surgery, 'cancel')}
@@ -222,6 +223,7 @@ export default function SurgeriesPage() {
                 <SurgeryForm
                     surgery={form.id ? form : null}
                     quoteOnly={!!form.quoteOnly}
+                    scheduleOnly={!!form.scheduleOnly}
                     onClose={() => setForm(null)}
                 />
             )}

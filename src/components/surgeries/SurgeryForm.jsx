@@ -33,6 +33,7 @@ import useAuthFetch from '../../hooks/useAuthFetch'
 import { formatMoney, invoiceStatusColors, invoiceStatusLabels, paymentMethodLabels } from '../cash/utils'
 import PatientSelect from '../patients/PatientSelect'
 import PatientFields from '../patients/PatientFields'
+import SurgeryScheduleFields from './SurgeryScheduleFields'
 
 function Section({ number, title, action, children }) {
     return (
@@ -51,20 +52,20 @@ function Section({ number, title, action, children }) {
     )
 }
 
-export default function SurgeryForm({ surgery, onClose, quoteOnly = false }) {
+export default function SurgeryForm({ surgery, onClose, quoteOnly = false, scheduleOnly = false }) {
     const [pending, setPending] = useState(false)
     const detail = useAuthFetch(
         ['surgeries', 'detail', surgery?.id],
         ({ signal }) => surgeriesApi.getById(surgery.id, signal),
         {
-            enabled: !!surgery?.id,
+            enabled: !!surgery?.id && !scheduleOnly,
             refetchOnMount: 'always',
             refetchOnWindowFocus: false,
             refetchOnReconnect: false,
         },
     )
 
-    const loading = surgery?.id && !detail.data
+    const loading = !scheduleOnly && surgery?.id && !detail.data
     return (
         <Dialog.Root
             open
@@ -83,15 +84,25 @@ export default function SurgeryForm({ surgery, onClose, quoteOnly = false }) {
                     <Dialog.Content bg="white" color="gray.800" mx="4">
                         <Dialog.Header borderBottomWidth="1px" py="6">
                             <Dialog.Title fontSize="xl">
-                                {quoteOnly ? 'Nuevo presupuesto' : surgery ? 'Editar cirugía' : 'Nueva cirugía'}
+                                {scheduleOnly
+                                    ? 'Aprobar y citar'
+                                    : quoteOnly
+                                      ? 'Nuevo presupuesto'
+                                      : surgery
+                                        ? 'Editar cirugía'
+                                        : 'Nueva cirugía'}
                             </Dialog.Title>
                             <Dialog.Description mt="1">
-                                {quoteOnly
-                                    ? 'Datos del paciente y de la intervención para generar el presupuesto.'
-                                    : 'Planificación, lente intraocular y preparación quirúrgica.'}
+                                {scheduleOnly
+                                    ? 'Selecciona el día y la hora de la cirugía para aceptar el presupuesto y programarla.'
+                                    : quoteOnly
+                                      ? 'Datos del paciente y de la intervención para generar el presupuesto.'
+                                      : 'Planificación, lente intraocular y preparación quirúrgica.'}
                             </Dialog.Description>
                         </Dialog.Header>
-                        {loading ? (
+                        {scheduleOnly ? (
+                            <SurgeryScheduleFields surgery={surgery} onClose={onClose} onPendingChange={setPending} />
+                        ) : loading ? (
                             <Dialog.Body py="6">
                                 <ListFeedback
                                     loading={detail.isFetching}

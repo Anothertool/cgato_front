@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useState } from 'react'
 import { useParams } from 'react-router-dom'
-import { Box, Button, Flex, Heading, Spinner, Stack, Text } from '@chakra-ui/react'
+import { Box, Flex, Spinner, Text } from '@chakra-ui/react'
 import { surgeriesApi } from '../api/surgeries'
 import useAuthFetch from '../hooks/useAuthFetch'
 import { ErrorNotice } from '../components/ui/Feedback'
@@ -10,8 +10,6 @@ export default function SurgeryQuotePage() {
     const [document, setDocument] = useState(null)
     const [pdfError, setPdfError] = useState(null)
     const [attempt, setAttempt] = useState(0)
-    const downloaded = useRef(null)
-    const downloadLink = useRef(null)
     const query = useAuthFetch(['surgeries', 'detail', id], ({ signal }) => surgeriesApi.getById(id, signal), {
         refetchOnWindowFocus: false,
         refetchOnReconnect: false,
@@ -33,7 +31,7 @@ export default function SurgeryQuotePage() {
                 const blob = await pdf(<SurgeryQuote surgery={query.data} />).toBlob()
                 if (!active) return
                 url = URL.createObjectURL(blob)
-                setDocument({ url, filename: `presupuesto-${id}.pdf` })
+                setDocument({ url })
             } catch (error) {
                 if (active) setPdfError(error)
             }
@@ -45,29 +43,12 @@ export default function SurgeryQuotePage() {
         }
     }, [query.data, id, attempt])
 
-    useEffect(() => {
-        if (document && downloaded.current !== id) {
-            downloaded.current = id
-            downloadLink.current?.click()
-        }
-    }, [document, id])
-
     return (
-        <Stack minH="100vh" bg="gray.50" color="gray.800" p={{ base: '4', md: '6' }} gap="4">
-            <Flex align="center" justify="space-between" gap="3" wrap="wrap">
-                <Heading size="lg">Presupuesto de cirugía</Heading>
-                {document && (
-                    <Button asChild bg="blue.950" color="white">
-                        <a ref={downloadLink} href={document.url} download={document.filename}>
-                            Descargar PDF
-                        </a>
-                    </Button>
-                )}
-            </Flex>
+        <Box h="100dvh" bg="gray.50" color="gray.800">
             <ErrorNotice error={query.error} onRetry={query.refetch} />
             <ErrorNotice error={pdfError} onRetry={() => setAttempt((current) => current + 1)} />
             {!query.error && !pdfError && !document && (
-                <Flex align="center" justify="center" gap="3" py="20" role="status">
+                <Flex align="center" justify="center" gap="3" h="full" role="status">
                     <Spinner size="sm" />
                     <Text>{query.isPending ? 'Cargando cirugía…' : 'Generando presupuesto…'}</Text>
                 </Flex>
@@ -78,12 +59,11 @@ export default function SurgeryQuotePage() {
                     title="PDF del presupuesto de cirugía"
                     src={document.url}
                     w="full"
-                    flex="1"
-                    minH="80vh"
-                    borderWidth="1px"
-                    rounded="lg"
+                    h="full"
+                    display="block"
+                    border="0"
                 />
             )}
-        </Stack>
+        </Box>
     )
 }

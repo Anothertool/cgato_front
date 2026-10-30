@@ -1,5 +1,5 @@
 import { IconButton, Menu, Portal } from '@chakra-ui/react'
-import { Ban, Check, MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react'
+import { Ban, CalendarCheck, Check, FileText, MoreHorizontal, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 
 export default function RecordActions({
     label,
@@ -8,17 +8,14 @@ export default function RecordActions({
     onCancel,
     onComplete,
     onReopen,
+    onApproveAndSchedule,
+    quoteHref,
     disabled,
 }) {
     return (
         <Menu.Root>
             <Menu.Trigger asChild>
-                <IconButton
-                    aria-label={`Acciones de ${label}`}
-                    size="sm"
-                    variant="ghost"
-                    disabled={disabled}
-                >
+                <IconButton aria-label={`Acciones de ${label}`} size="sm" variant="ghost" disabled={disabled}>
                     <MoreHorizontal size={18} />
                 </IconButton>
             </Menu.Trigger>
@@ -29,6 +26,20 @@ export default function RecordActions({
                             <Pencil size={15} />
                             Editar
                         </Menu.Item>
+                        {quoteHref && (
+                            <Menu.Item value="quote" asChild>
+                                <a href={quoteHref} target="_blank" rel="noopener noreferrer">
+                                    <FileText size={15} />
+                                    Ver presupuesto PDF
+                                </a>
+                            </Menu.Item>
+                        )}
+                        {onApproveAndSchedule && (
+                            <Menu.Item value="approve-and-schedule" onSelect={onApproveAndSchedule}>
+                                <CalendarCheck size={15} />
+                                Aprobar y citar
+                            </Menu.Item>
+                        )}
                         {onComplete && (
                             <Menu.Item value="complete" onSelect={onComplete}>
                                 <Check size={15} />

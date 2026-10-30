@@ -75,10 +75,12 @@ export default function CashPage() {
                     ],
                     ['total_week', 'Total semana', CalendarDays, `Semana del ${summaryDateLabel} · De lunes a domingo`],
                     [
-                        'cash_today',
-                        summaryDate === today ? 'Efectivo hoy' : 'Efectivo del día',
+                        'total_month',
+                        'Total mes',
                         Banknote,
-                        `Cobros en efectivo del ${summaryDateLabel}`,
+                        !summary.isError && summary.data?.month_start && summary.data?.month_end
+                            ? `Del ${formatDate(`${summary.data.month_start}T00:00:00`)} al ${formatDate(`${summary.data.month_end}T00:00:00`)}`
+                            : 'Periodo mensual',
                     ],
                 ].map(([key, label, Icon, description]) => (
                     <Box key={key} bg="white" borderWidth="1px" borderColor="gray.200" rounded="xl" p="5">
@@ -93,6 +95,12 @@ export default function CashPage() {
                         <Skeleton loading={summary.isPending} minH="9">
                             <Text fontSize="2xl" color="blue.950" fontWeight="bold" aria-live="polite">
                                 {formatMoney(summary.isError ? null : summary.data?.[key])}
+                                {key === 'total_today' && (
+                                    <Text as="span" fontSize="inherit" fontWeight="inherit">
+                                        {' '}
+                                        ({formatMoney(summary.isError ? null : summary.data?.cash_today)} efectivo)
+                                    </Text>
+                                )}
                             </Text>
                         </Skeleton>
                         <Text color="gray.400" fontSize="xs" mt="2">
