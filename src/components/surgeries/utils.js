@@ -246,7 +246,11 @@ export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
                           amount: decimal(0, 9999999999.99).required('Introduce el importe del presupuesto.'),
                       }),
                   })
-                : formSchema
+                : formSchema.shape({
+                      value: surgerySchema.shape({
+                          scheduled_at: surgerySchema.fields.scheduled_at.required('Selecciona la fecha de la cirugía.'),
+                      }),
+                  })
             schema.validateSync({ value, mode, selected, patient }, { abortEarly: false, context: { mode } })
         } catch (error) {
             if (!(error instanceof yup.ValidationError)) throw error

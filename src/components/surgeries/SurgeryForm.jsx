@@ -31,6 +31,7 @@ import { surgeriesApi } from '../../api/surgeries'
 import useAuthFetch from '../../hooks/useAuthFetch'
 import { formatMoney, invoiceStatusColors, invoiceStatusLabels, paymentMethodLabels } from '../cash/utils'
 import EyeSelector from '../common/EyeSelector'
+import DateTimeSelectField from '../common/DateTimeSelectField'
 import PatientField from '../common/PatientField'
 import SurgeryScheduleFields from './SurgeryScheduleFields'
 
@@ -225,9 +226,13 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                             />
                             {!quoteOnly && (
                                 <>
-                                    {field('scheduled_at', 'Fecha y hora programada', {
-                                        type: 'datetime-local',
-                                    })}
+                                    <DateTimeSelectField
+                                        value={value.scheduled_at}
+                                        onChange={(next) => change({ target: { name: 'scheduled_at', value: next } })}
+                                        error={errors.scheduled_at}
+                                        required
+                                        disabled={mutation.isPending}
+                                    />
                                     {selectField('insurer', 'Aseguradora', insurerLabels)}
                                     {field('anesthesia', 'Anestesia', { maxLength: 255 })}
                                 </>
