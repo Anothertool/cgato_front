@@ -12,15 +12,24 @@ import {
     Text,
     Textarea,
 } from '@chakra-ui/react'
+import { Package, UserRound } from 'lucide-react'
+import { GiScalpel } from 'react-icons/gi'
 import { cashApi } from '../../api/cash'
 import { patientsApi } from '../../api/patients'
 import useAuthMutate from '../../hooks/useAuthMutate'
+import LensOrderSelect from '../lensOrders/LensOrderSelect'
 import PatientSelect from '../patients/PatientSelect'
 import SurgerySelect, { surgeryOptionLabel } from '../surgeries/SurgerySelect'
 import PatientFields, { emptyPatient, patientPayload } from '../patients/PatientFields'
-import FormField, { SelectInput } from '../ui/FormField'
+import FormField from '../ui/FormField'
 import { ErrorNotice } from '../ui/Feedback'
 import { invoiceStatusLabels, paymentMethodLabels, todayDate } from './utils'
+
+const associationOptions = [
+    { value: 'patient', label: 'Paciente', icon: UserRound },
+    { value: 'surgery', label: 'Cirugía', icon: GiScalpel },
+    { value: 'order', label: 'Pedido', icon: Package },
+]
 
 export default function CashForm({ entry, surgery, onClose }) {
     const [selectedSurgery, setSelectedSurgery] = useState(() => {
@@ -29,12 +38,15 @@ export default function CashForm({ entry, surgery, onClose }) {
         const id = entry?.surgery_id || entry?.surgery
         return id ? { id } : null
     })
+    const [selectedOrder, setSelectedOrder] = useState(entry?.lens_order_id ?? null)
     const [association, setAssociation] = useState(
         surgery || entry?.surgery || entry?.surgery_id
             ? 'surgery'
-            : entry?.patient
-              ? 'patient'
-              : '',
+            : entry?.lens_order_id
+              ? 'order'
+              : entry?.patient
+                ? 'patient'
+                : '',
     )
     const [value, setValue] = useState(() => ({
         date: entry?.date || todayDate(),
@@ -80,9 +92,16 @@ export default function CashForm({ entry, surgery, onClose }) {
         mutation.reset()
         createPatient.reset()
     }
+    const changeAssociation = (next) => {
+        setAssociation(association === next ? '' : next)
+        setSelected(null)
+        setSelectedSurgery(null)
+        setSelectedOrder(null)
+        changeMode('existing')
+    }
     const submit = async (event) => {
         event.preventDefault()
-        if (pending) return
+        if (pending || (association === 'order' && !selectedOrder)) return
         let patientId = association === 'patient' ? selected?.id || null : null
         if (association === 'patient' && mode === 'new') {
             if (!patient.first_name.trim()) {
@@ -97,18 +116,23 @@ export default function CashForm({ entry, surgery, onClose }) {
             }
         }
         const surgeryId = association === 'surgery' ? selectedSurgery?.id || null : null
+        const orderId = association === 'order' ? selectedOrder : null
         mutation.mutate({
             ...value,
             amount: Number(value.amount).toFixed(2),
             invoice_number: value.invoice_number.trim(),
             notes: value.notes.trim(),
             ...(entry
-                ? { patient_id: patientId, surgery_id: surgeryId }
-                : surgeryId
-                  ? { surgery_id: surgeryId }
-                  : patientId
-                    ? { patient_id: patientId }
-                    : {}),
+                ? {
+                      patient_id: patientId,
+                      surgery_id: surgeryId,
+                      ...(orderId !== (entry.lens_order_id ?? null) && { lens_order_id: orderId }),
+                  }
+                : {
+                      ...(patientId && { patient_id: patientId }),
+                      ...(surgeryId && { surgery_id: surgeryId }),
+                      ...(orderId && { lens_order_id: orderId }),
+                  }),
         })
     }
     return (
@@ -128,9 +152,7 @@ export default function CashForm({ entry, surgery, onClose }) {
                 <Dialog.Positioner>
                     <Dialog.Content as="form" onSubmit={submit} bg="white" color="gray.800" mx="4">
                         <Dialog.Header borderBottomWidth="1px" py="6">
-                            <Dialog.Title fontSize="xl">
-                                {entry ? 'Editar cobro' : 'Nuevo cobro'}
-                            </Dialog.Title>
+                            <Dialog.Title fontSize="xl">{entry ? 'Editar cobro' : 'Nuevo cobro'}</Dialog.Title>
                             <Dialog.Description mt="1">
                                 Registra el importe, el método de pago y los datos de la factura.
                             </Dialog.Description>
@@ -138,52 +160,53 @@ export default function CashForm({ entry, surgery, onClose }) {
                         <Dialog.Body py="6">
                             <Stack gap="6">
                                 <ErrorNotice error={mutation.error || createPatient.error} />
-                                <Box
-                                    as="fieldset"
-                                    disabled={pending}
-                                    border="0"
-                                    p="0"
-                                    m="0"
-                                    minW="0"
-                                >
+                                <Box as="fieldset" disabled={pending} border="0" p="0" m="0" minW="0">
                                     <Stack gap="6">
                                         {surgery ? (
                                             <Box>
                                                 <Text fontWeight="medium" fontSize="sm" mb="2">
                                                     Cirugía asociada
                                                 </Text>
-                                                <Text fontSize="sm">
-                                                    {surgeryOptionLabel(surgery)}
-                                                </Text>
+                                                <Text fontSize="sm">{surgeryOptionLabel(surgery)}</Text>
                                                 {errors.surgery_id && (
-                                                    <Text
-                                                        role="alert"
-                                                        fontSize="sm"
-                                                        color="red.600"
-                                                        mt="2"
-                                                    >
+                                                    <Text role="alert" fontSize="sm" color="red.600" mt="2">
                                                         {String(errors.surgery_id)}
                                                     </Text>
                                                 )}
                                             </Box>
                                         ) : (
                                             <FormField label="Asociar cobro (opcional)">
-                                                <SelectInput
-                                                    value={association}
-                                                    onChange={(event) => {
-                                                        setAssociation(event.target.value)
-                                                        setSelected(null)
-                                                        setSelectedSurgery(null)
-                                                        setMode('existing')
-                                                        setPatientError('')
-                                                        mutation.reset()
-                                                        createPatient.reset()
-                                                    }}
+                                                <SimpleGrid
+                                                    columns={3}
+                                                    gap="2"
+                                                    w="full"
+                                                    role="group"
+                                                    aria-label="Asociar cobro"
                                                 >
-                                                    <option value="">Sin asociar</option>
-                                                    <option value="patient">Paciente</option>
-                                                    <option value="surgery">Cirugía</option>
-                                                </SelectInput>
+                                                    {associationOptions.map(({ value, label, icon: Icon }) => (
+                                                        <Button
+                                                            key={value}
+                                                            type="button"
+                                                            variant="outline"
+                                                            flexDirection="column"
+                                                            h="auto"
+                                                            px="2"
+                                                            py="2"
+                                                            gap="1"
+                                                            borderWidth="1px"
+                                                            borderColor={
+                                                                association === value ? 'blue.400' : 'gray.200'
+                                                            }
+                                                            bg={association === value ? 'blue.50' : 'white'}
+                                                            color="blue.900"
+                                                            aria-pressed={association === value}
+                                                            onClick={() => changeAssociation(value)}
+                                                        >
+                                                            <Icon size={18} aria-hidden="true" />
+                                                            {label}
+                                                        </Button>
+                                                    ))}
+                                                </SimpleGrid>
                                             </FormField>
                                         )}
                                         {!surgery && association === 'surgery' && (
@@ -198,14 +221,21 @@ export default function CashForm({ entry, surgery, onClose }) {
                                                 />
                                             </FormField>
                                         )}
+                                        {!surgery && association === 'order' && (
+                                            <FormField label="Pedido" required error={errors.lens_order_id}>
+                                                <LensOrderSelect
+                                                    value={selectedOrder}
+                                                    disabled={pending}
+                                                    onChange={(next) => {
+                                                        setSelectedOrder(next)
+                                                        mutation.reset()
+                                                    }}
+                                                />
+                                            </FormField>
+                                        )}
                                         {!surgery && association === 'patient' && (
                                             <Box>
-                                                <Flex
-                                                    justify="space-between"
-                                                    align="center"
-                                                    mb="2"
-                                                    gap="3"
-                                                >
+                                                <Flex justify="space-between" align="center" mb="2" gap="3">
                                                     <Text fontWeight="medium" fontSize="sm">
                                                         Paciente (opcional)
                                                     </Text>
@@ -255,18 +285,13 @@ export default function CashForm({ entry, surgery, onClose }) {
                                                     </Stack>
                                                 )}
                                                 {errors.patient_id && (
-                                                    <Text
-                                                        role="alert"
-                                                        fontSize="sm"
-                                                        color="red.600"
-                                                        mt="2"
-                                                    >
+                                                    <Text role="alert" fontSize="sm" color="red.600" mt="2">
                                                         {String(errors.patient_id)}
                                                     </Text>
                                                 )}
                                                 <Text color="gray.500" fontSize="xs" mt="2">
-                                                    Puedes asociar el cobro a un paciente o a una
-                                                    cirugía, o dejarlo sin asociar.
+                                                    Puedes asociar el cobro a un paciente o a una cirugía o un pedido, o
+                                                    dejarlo sin asociar.
                                                 </Text>
                                             </Box>
                                         )}
@@ -294,32 +319,17 @@ export default function CashForm({ entry, surgery, onClose }) {
                                                 error={errors.amount}
                                             />
                                         </SimpleGrid>
-                                        <FormField
-                                            label="Método de pago"
-                                            required
-                                            error={errors.payment_method}
-                                        >
-                                            <Flex
-                                                gap="2"
-                                                wrap="wrap"
-                                                role="group"
-                                                aria-label="Método de pago"
-                                            >
-                                                {Object.entries(paymentMethodLabels).map(
-                                                    ([key, label]) => (
+                                        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5" alignItems="start">
+                                            <FormField label="Método de pago" required error={errors.payment_method}>
+                                                <Flex gap="2" wrap="wrap" role="group" aria-label="Método de pago">
+                                                    {Object.entries(paymentMethodLabels).map(([key, label]) => (
                                                         <Button
                                                             key={key}
                                                             type="button"
                                                             size="sm"
                                                             colorPalette="blue"
-                                                            variant={
-                                                                value.payment_method === key
-                                                                    ? 'solid'
-                                                                    : 'outline'
-                                                            }
-                                                            aria-pressed={
-                                                                value.payment_method === key
-                                                            }
+                                                            variant={value.payment_method === key ? 'solid' : 'outline'}
+                                                            aria-pressed={value.payment_method === key}
                                                             onClick={() =>
                                                                 change({
                                                                     target: {
@@ -331,10 +341,50 @@ export default function CashForm({ entry, surgery, onClose }) {
                                                         >
                                                             {label}
                                                         </Button>
-                                                    ),
-                                                )}
-                                            </Flex>
-                                        </FormField>
+                                                    ))}
+                                                </Flex>
+                                            </FormField>
+                                            <FormField
+                                                label="Estado de la factura"
+                                                required
+                                                error={errors.invoice_status}
+                                            >
+                                                <RadioGroup.Root
+                                                    name="invoice_status"
+                                                    value={value.invoice_status}
+                                                    colorPalette="blue"
+                                                    disabled={pending}
+                                                    onValueChange={({ value: next }) =>
+                                                        change({
+                                                            target: {
+                                                                name: 'invoice_status',
+                                                                value: next,
+                                                            },
+                                                        })
+                                                    }
+                                                >
+                                                    <SimpleGrid columns={3} gap="2" alignItems="start">
+                                                        {Object.entries(invoiceStatusLabels).map(([key, label]) => (
+                                                            <RadioGroup.Item
+                                                                key={key}
+                                                                value={key}
+                                                                alignItems="start"
+                                                                minW="0"
+                                                            >
+                                                                <RadioGroup.ItemHiddenInput />
+                                                                <RadioGroup.ItemIndicator flexShrink="0" />
+                                                                <RadioGroup.ItemText
+                                                                    fontSize="xs"
+                                                                    overflowWrap="anywhere"
+                                                                >
+                                                                    {label}
+                                                                </RadioGroup.ItemText>
+                                                            </RadioGroup.Item>
+                                                        ))}
+                                                    </SimpleGrid>
+                                                </RadioGroup.Root>
+                                            </FormField>
+                                        </SimpleGrid>
                                         <FormField
                                             label="Número de factura (opcional)"
                                             name="invoice_number"
@@ -344,44 +394,7 @@ export default function CashForm({ entry, surgery, onClose }) {
                                             onChange={change}
                                             error={errors.invoice_number}
                                         />
-                                        <FormField
-                                            label="Estado de la factura"
-                                            required
-                                            error={errors.invoice_status}
-                                        >
-                                            <RadioGroup.Root
-                                                name="invoice_status"
-                                                value={value.invoice_status}
-                                                colorPalette="blue"
-                                                disabled={pending}
-                                                onValueChange={({ value: next }) =>
-                                                    change({
-                                                        target: {
-                                                            name: 'invoice_status',
-                                                            value: next,
-                                                        },
-                                                    })
-                                                }
-                                            >
-                                                <Stack gap="3">
-                                                    {Object.entries(invoiceStatusLabels).map(
-                                                        ([key, label]) => (
-                                                            <RadioGroup.Item key={key} value={key}>
-                                                                <RadioGroup.ItemHiddenInput />
-                                                                <RadioGroup.ItemIndicator />
-                                                                <RadioGroup.ItemText>
-                                                                    {label}
-                                                                </RadioGroup.ItemText>
-                                                            </RadioGroup.Item>
-                                                        ),
-                                                    )}
-                                                </Stack>
-                                            </RadioGroup.Root>
-                                        </FormField>
-                                        <FormField
-                                            label="Observaciones (opcional)"
-                                            error={errors.notes}
-                                        >
+                                        <FormField label="Observaciones (opcional)" error={errors.notes}>
                                             <Textarea
                                                 name="notes"
                                                 value={value.notes}
@@ -395,15 +408,16 @@ export default function CashForm({ entry, surgery, onClose }) {
                             </Stack>
                         </Dialog.Body>
                         <Dialog.Footer borderTopWidth="1px">
-                            <Button
-                                type="button"
-                                variant="outline"
-                                onClick={onClose}
-                                disabled={pending}
-                            >
+                            <Button type="button" variant="outline" onClick={onClose} disabled={pending}>
                                 Cancelar
                             </Button>
-                            <Button type="submit" bg="blue.900" color="white" loading={pending}>
+                            <Button
+                                type="submit"
+                                bg="blue.900"
+                                color="white"
+                                loading={pending}
+                                disabled={association === 'order' && !selectedOrder}
+                            >
                                 Guardar cambios
                             </Button>
                         </Dialog.Footer>

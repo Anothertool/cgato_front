@@ -8,7 +8,7 @@ import { patientName } from '../../utils/format'
 import { ErrorNotice } from '../ui/Feedback'
 import Pagination from '../ui/Pagination'
 
-export default function PatientSelect({ value, onChange, onCreate, disabled }) {
+export default function PatientSelect({ value, onChange, onCreate, disabled, required }) {
     const [search, setSearch] = useState('')
     const [page, setPage] = useState(1)
     const [menuOpen, setMenuOpen] = useState(false)
@@ -56,6 +56,7 @@ export default function PatientSelect({ value, onChange, onCreate, disabled }) {
                 <Select
                     inputId="surgery-patient"
                     aria-label="Paciente"
+                    aria-required={required}
                     classNamePrefix="patient-select"
                     isClearable
                     isDisabled={disabled}

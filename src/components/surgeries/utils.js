@@ -17,6 +17,17 @@ import {
 import { emptyPatient, patientPayload } from '../patients/PatientFields'
 import { toaster } from '../ui/toaster'
 
+const lensPrices = {
+    EYEHANCE_TORICA: 990,
+    EDOF_BVI_SERENITY: 740,
+    EDOF_TORICA: 1390,
+    MULTI_DRN00V: 1790,
+    MULTI_TORICA_DRT: 1890,
+    PURE_DEN00V: 1690,
+    PURE_TORICA_DET: 1790,
+}
+const istentPrice = 1500
+
 export const initialValues = {
     surgery_type: '',
     eye: '',
@@ -53,7 +64,10 @@ export const surgerySchema = yup.object({
     surgery_type: optionalChoice(surgeryTypeLabels).required('Selecciona un tipo de cirugía.'),
     eye: optionalChoice(eyeLabels).required('Selecciona un ojo.'),
     insurer: optionalChoice(insurerLabels),
-    iol_model: optionalChoice(iolModelLabels).required('Selecciona un modelo de lente.'),
+    iol_model: optionalChoice(iolModelLabels).when('surgery_type', {
+        is: 'LASIK',
+        otherwise: (schema) => schema.required('Selecciona un modelo de lente.'),
+    }),
     budget_status: yup
         .string()
         .oneOf(Object.keys(budgetStatusLabels), 'Selecciona un estado válido.')
@@ -148,7 +162,7 @@ export function surgeryPayload(value, surgery, mode, selected, patient) {
     const data = {
         ...editableValues,
         ...Object.fromEntries(
-            ['surgery_type', 'eye', 'insurer', 'iol_model', 'amount', 'operating_room_cost', 'iol_power'].map((key) => [
+            ['surgery_type', 'eye', 'insurer', 'amount', 'operating_room_cost', 'iol_power'].map((key) => [
                 key,
                 value[key] === '' ? null : value[key],
             ]),
@@ -166,7 +180,14 @@ export function surgeryPayload(value, surgery, mode, selected, patient) {
 
 export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
     const quoteWindow = useRef(null)
-    const [value, setValue] = useState(() => getInitialValues(surgery))
+    const [formValue, setValue] = useState(() => getInitialValues(surgery))
+    const lensPrice = lensPrices[formValue.iol_model]
+    const hasLensPrice = quoteOnly && formValue.surgery_type !== 'LASIK' && Number.isFinite(lensPrice)
+    const implantPrice = formValue.surgery_type === 'FACO_INSTENT' && formValue.iol_model === 'PURE_DEN00V' ? istentPrice : 0
+    const eyeCount = formValue.eye === 'BOTH' ? 2 : Number(Boolean(formValue.eye))
+    const value = hasLensPrice
+        ? { ...formValue, amount: eyeCount ? String((lensPrice + implantPrice) * eyeCount) : '' }
+        : formValue
     const [mode, setMode] = useState('existing')
     const [selected, setSelected] = useState(surgery?.patient || null)
     const [patient, setPatient] = useState(() => ({ ...emptyPatient }))
@@ -196,6 +217,7 @@ export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
         const { name, value: next } = event.target
         setValue((current) => ({ ...current, [name]: next }))
         clearError(name)
+        if (quoteOnly && ['iol_model', 'eye', 'surgery_type'].includes(name)) clearError('amount')
     }
     const selectPatient = (next) => {
         setSelected(next)
@@ -263,6 +285,7 @@ export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
     const status = surgery?.display_status || value.budget_status
     return {
         value,
+        hasLensPrice,
         mode,
         selected,
         patient,

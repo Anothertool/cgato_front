@@ -50,6 +50,14 @@ export const surgeryTypeLabels = {
     INSTENT: 'Instent',
     EPNP: 'EPNP',
     PRESERFLO: 'Preserflo',
+    ICL: 'ICL',
+    PRK: 'PRK',
+    LASIK: 'LASIK',
+    PTOSIS: 'Ptosis',
+    CHALAZION: 'Chalazión',
+    CONJUNCTIVOCHALASIS_PUNCTOPLASTY: 'Conjuntivochalasis + puntoplastia',
+    ANTI_VEGF_INJECTION: 'Inyección intravítrea anti-VEGF',
+    OTHER: 'Otros',
 }
 export const insurerLabels = {
     CASER: 'Caser',
@@ -65,6 +73,10 @@ export const iolModelLabels = {
     MULTI_DRN00V: 'MULTI DRN00V',
     MULTI_TORICA_DRT: 'MULTI + TORICA DRT',
     HOYA_XY1: 'HOYA XY1',
+    EYEHANCE_TORICA: 'Eyhance tórica J&J',
+    EDOF_BVI_SERENITY: 'EDOF BVI Serenity',
+    EDOF_TORICA: 'EDOF tórica',
+    OTHER: 'Otros',
 }
 export const checklist = {
     lens_ordered: 'Lentes pedidas',

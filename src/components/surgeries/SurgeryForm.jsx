@@ -10,7 +10,6 @@ import {
     Flex,
     Heading,
     Portal,
-    RadioGroup,
     SimpleGrid,
     Stack,
     Table,
@@ -31,8 +30,8 @@ import { ErrorNotice, ListFeedback } from '../ui/Feedback'
 import { surgeriesApi } from '../../api/surgeries'
 import useAuthFetch from '../../hooks/useAuthFetch'
 import { formatMoney, invoiceStatusColors, invoiceStatusLabels, paymentMethodLabels } from '../cash/utils'
-import PatientSelect from '../patients/PatientSelect'
-import PatientFields from '../patients/PatientFields'
+import EyeSelector from '../common/EyeSelector'
+import PatientField from '../common/PatientField'
 import SurgeryScheduleFields from './SurgeryScheduleFields'
 
 function Section({ number, title, action, children }) {
@@ -135,6 +134,7 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
     const payments = surgery?.payments || []
     const {
         value,
+        hasLensPrice,
         mode,
         selected,
         patient,
@@ -164,17 +164,17 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
             {...props}
         />
     )
-    const selectField = (name, label, options, optional = true) => (
+    const selectField = (name, label, options, optional = true, required = !optional || name === 'surgery_type') => (
         <FormField
             label={label}
             error={errors[name]}
-            required={!optional || ['surgery_type', 'eye', 'iol_model'].includes(name)}
+            required={required}
         >
             <SelectInput
                 name={name}
                 value={value[name]}
                 onChange={change}
-                required={!optional || ['surgery_type', 'eye', 'iol_model'].includes(name)}
+                required={required}
             >
                 {optional && <option value="">Sin seleccionar</option>}
                 {Object.entries(options).map(([key, text]) => (
@@ -190,57 +190,16 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
             <Dialog.Body py="6">
                 <Stack gap="8">
                     <ErrorNotice error={mutation.error} />
-                    <Section
-                        number="01"
-                        title="Paciente"
-                        action={
-                            !surgery &&
-                            mode === 'existing' && (
-                                <Button
-                                    type="button"
-                                    variant="plain"
-                                    color="blue.700"
-                                    size="sm"
-                                    px="0"
-                                    disabled={mutation.isPending}
-                                    onClick={() => changeMode('new')}
-                                >
-                                    + Crear nuevo
-                                </Button>
-                            )
-                        }
-                    >
-                        {mode === 'existing' ? (
-                            <PatientSelect
-                                value={selected}
-                                disabled={mutation.isPending}
-                                onChange={selectPatient}
-                                onCreate={!surgery ? () => changeMode('new') : undefined}
-                            />
-                        ) : (
-                            <Stack gap="3">
-                                <PatientFields
-                                    value={patient}
-                                    onChange={changePatient}
-                                    errors={errors.patient}
-                                    showClinicalReference={false}
-                                />
-                                <Button
-                                    alignSelf="start"
-                                    size="sm"
-                                    variant="outline"
-                                    onClick={() => changeMode('existing')}
-                                >
-                                    Buscar paciente existente
-                                </Button>
-                            </Stack>
-                        )}
-                        {errors.patient_id && (
-                            <Text color="red.600" mt="2" fontSize="sm" role="alert">
-                                {String(errors.patient_id)}
-                            </Text>
-                        )}
-                    </Section>
+                    <PatientField
+                        selected={selected}
+                        onSelect={selectPatient}
+                        mode={mode}
+                        onModeChange={surgery ? undefined : changeMode}
+                        patient={patient}
+                        onPatientChange={changePatient}
+                        disabled={mutation.isPending}
+                        errors={errors}
+                    />
                     {!quoteOnly && (
                         <Section number="02" title="Estado">
                             <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5" alignItems="center">
@@ -257,29 +216,13 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                     <Section number={quoteOnly ? '02' : '03'} title="Datos de la cirugía">
                         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
                             {selectField('surgery_type', 'Tipo de cirugía', surgeryTypeLabels)}
-                            <FormField label="Ojo" required error={errors.eye}>
-                                <RadioGroup.Root
-                                    name="eye"
-                                    value={value.eye}
-                                    colorPalette="blue"
-                                    disabled={mutation.isPending}
-                                    onValueChange={({ value: next }) =>
-                                        change({ target: { name: 'eye', value: next } })
-                                    }
-                                >
-                                    <Flex gap="5" align="center" minH="10">
-                                        {Object.entries({ RIGHT: 'OD', LEFT: 'OI', BOTH: 'Ambos' }).map(
-                                            ([key, label]) => (
-                                                <RadioGroup.Item key={key} value={key}>
-                                                    <RadioGroup.ItemHiddenInput required />
-                                                    <RadioGroup.ItemIndicator />
-                                                    <RadioGroup.ItemText>{label}</RadioGroup.ItemText>
-                                                </RadioGroup.Item>
-                                            ),
-                                        )}
-                                    </Flex>
-                                </RadioGroup.Root>
-                            </FormField>
+                            <EyeSelector
+                                value={value.eye}
+                                onChange={(next) => change({ target: { name: 'eye', value: next } })}
+                                required
+                                disabled={mutation.isPending}
+                                error={errors.eye}
+                            />
                             {!quoteOnly && (
                                 <>
                                     {field('scheduled_at', 'Fecha y hora programada', {
@@ -293,7 +236,7 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                     </Section>
                     <Section number={quoteOnly ? '03' : '04'} title="Lente intraocular">
                         <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
-                            {selectField('iol_model', 'Modelo', iolModelLabels)}
+                            {selectField('iol_model', 'Modelo', iolModelLabels, true, value.surgery_type !== 'LASIK')}
                             {field('iol_power', 'Potencia (D)', {
                                 type: 'number',
                                 min: '-99999.99',
@@ -306,6 +249,7 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                         field('amount', 'Importe del presupuesto (€)', {
                             type: 'number',
                             required: true,
+                            readOnly: hasLensPrice,
                             min: '0',
                             max: '9999999999.99',
                             step: '0.01',

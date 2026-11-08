@@ -1,11 +1,10 @@
-import { Box, Flex, Heading, Text } from '@chakra-ui/react'
-import { ChevronRight } from 'lucide-react'
+import { Box, Flex, Heading } from '@chakra-ui/react'
 
-export default function Header({ title, actionRef, showBreadcrumbs = true }) {
+export default function Header({ title, actionRef }) {
     return (
         <Flex
             as="header"
-            minH={showBreadcrumbs ? '112px' : '76px'}
+            minH="76px"
             py="4"
             px={{ base: '5', lg: '10' }}
             align="center"
@@ -15,32 +14,9 @@ export default function Header({ title, actionRef, showBreadcrumbs = true }) {
             borderColor="gray.200"
             gap="4"
         >
-            <Box minW="0">
-                {showBreadcrumbs && (
-                    <Flex
-                        gap={{ base: '2', sm: '3' }}
-                        align="center"
-                        fontSize={{ base: 'xs', sm: 'sm' }}
-                        as="nav"
-                        aria-label="Ruta de navegación"
-                    >
-                        <Text color="gray.400">Clínica</Text>
-                        <Box color="gray.300">
-                            <ChevronRight size={14} />
-                        </Box>
-                        <Text fontWeight="medium" aria-current="page">
-                            {title}
-                        </Text>
-                    </Flex>
-                )}
-                <Heading
-                    size={{ base: 'xl', sm: '2xl' }}
-                    letterSpacing="-1px"
-                    mt={showBreadcrumbs ? '2' : '0'}
-                >
-                    {title}
-                </Heading>
-            </Box>
+            <Heading as="h1" size={{ base: 'xl', sm: '2xl' }} letterSpacing="-1px" minW="0">
+                {title}
+            </Heading>
             <Box ref={actionRef} flexShrink="0" ml="auto" />
         </Flex>
     )

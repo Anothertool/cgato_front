@@ -65,6 +65,8 @@ export default function CashEntriesTable({ entries, onEdit, onDelete, onOpenSurg
                                 </Stack>
                             ) : entry.patient ? (
                                 patientName(entry.patient)
+                            ) : entry.lens_order_id ? (
+                                'Pedido'
                             ) : (
                                 'Sin asociar'
                             )}

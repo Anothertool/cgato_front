@@ -5,6 +5,7 @@ import SurgeriesPage from '../pages/SurgeriesPage'
 import CalendarPage from '../pages/CalendarPage'
 import CashPage from '../pages/CashPage'
 import SurgeryQuotePage from '../pages/SurgeryQuotePage'
+import LensOrdersPage from '../pages/LensOrdersPage'
 
 export const router = createBrowserRouter([
     { path: '/presupuesto/:id', element: <SurgeryQuotePage /> },
@@ -14,6 +15,7 @@ export const router = createBrowserRouter([
             { path: '/', element: <Navigate to="/surgeries" replace /> },
             { path: '/cash', element: <CashPage /> },
             { path: '/surgeries', element: <SurgeriesPage /> },
+            { path: '/orders', element: <LensOrdersPage /> },
             { path: '/patients', element: <PatientsPage /> },
             { path: '/calendar', element: <CalendarPage /> },
             { path: '*', element: <Navigate to="/surgeries" replace /> },

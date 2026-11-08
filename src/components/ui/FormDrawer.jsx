@@ -1,14 +1,6 @@
 import { Button, CloseButton, Drawer, Portal } from '@chakra-ui/react'
 
-export default function FormDrawer({
-    title,
-    description,
-    onClose,
-    onSubmit,
-    pending,
-    wide,
-    children,
-}) {
+export default function FormDrawer({ title, description, onClose, onSubmit, pending, wide, children }) {
     return (
         <Drawer.Root
             open

@@ -1,6 +1,6 @@
 import { Box, Flex, Image, Stack, Text } from '@chakra-ui/react'
 import { NavLink } from 'react-router-dom'
-import { CalendarDays, ClipboardList, Users, ShieldCheck, Wallet } from 'lucide-react'
+import { CalendarDays, ClipboardList, Package, Users, ShieldCheck, Wallet } from 'lucide-react'
 import cgatoLogo from '../../img/logo/cgato_logo.png'
 
 export default function Sidebar() {
@@ -48,6 +48,7 @@ export default function Sidebar() {
                     {[
                         { to: '/cash', label: 'Caja', icon: Wallet },
                         { to: '/surgeries', label: 'Cirugías', icon: ClipboardList },
+                        { to: '/orders', label: 'Pedidos', icon: Package },
                         { to: '/calendar', label: 'Agenda', icon: CalendarDays },
                         { to: '/patients', label: 'Pacientes', icon: Users },
                     ].map(({ to, label, icon: Icon }) => (
