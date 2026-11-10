@@ -11,7 +11,7 @@ const deliveryLabels = {
     appointment: { label: 'Citar', color: 'purple', icon: CalendarDays },
 }
 
-export default function LensOrderCard({ order, disabled }) {
+export default function LensOrderCard({ order, disabled, onDelivered }) {
     const [editing, setEditing] = useState(false)
     const name = patientName(order.patient)
     const delivery = deliveryLabels[order.delivery_type]
@@ -65,7 +65,7 @@ export default function LensOrderCard({ order, disabled }) {
                         </Flex>
                     )}
                 </Flex>
-                <LensOrderActionButton order={order} disabled={disabled} />
+                <LensOrderActionButton order={order} disabled={disabled} onDelivered={onDelivered} />
             </Stack>
             {editing && <LensOrderForm order={order} onClose={() => setEditing(false)} />}
         </>

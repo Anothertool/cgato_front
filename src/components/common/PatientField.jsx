@@ -1,4 +1,4 @@
-import { Button, Flex, Stack, Text } from '@chakra-ui/react'
+import { Box, Button, Field, Flex, Stack } from '@chakra-ui/react'
 import PatientFields from '../patients/PatientFields'
 import PatientSelect from '../patients/PatientSelect'
 
@@ -17,23 +17,21 @@ export default function PatientField({
     const startCreating = onModeChange && (() => onModeChange('new'))
 
     return (
-        <Stack gap="2">
-            <Flex justify="space-between" align="center" gap="3">
-                <Text fontWeight="medium" fontSize="sm">
+        <Field.Root required={required} invalid={!!errors.patient_id}>
+            <Flex w="full" justify="space-between" align="center" gap="3">
+                <Field.Label as={creating ? 'span' : 'label'} htmlFor={creating ? undefined : 'surgery-patient'}>
                     Paciente
-                    {required && (
-                        <Text as="span" color="red.600" ml="1" aria-hidden="true">
-                            *
-                        </Text>
-                    )}
-                </Text>
+                    <Field.RequiredIndicator />
+                </Field.Label>
                 {!creating && startCreating && (
                     <Button
                         type="button"
                         variant="plain"
                         color="blue.700"
                         size="sm"
-                        px="0"
+                        p="0"
+                        h="auto"
+                        minH="0"
                         disabled={disabled}
                         onClick={startCreating}
                     >
@@ -42,7 +40,7 @@ export default function PatientField({
                 )}
             </Flex>
             {creating ? (
-                <Stack gap="3">
+                <Stack gap="3" w="full">
                     <PatientFields
                         value={patient}
                         onChange={onPatientChange}
@@ -61,19 +59,17 @@ export default function PatientField({
                     </Button>
                 </Stack>
             ) : (
-                <PatientSelect
-                    value={selected}
-                    onChange={onSelect}
-                    onCreate={startCreating}
-                    disabled={disabled}
-                    required={required}
-                />
+                <Box w="full">
+                    <PatientSelect
+                        value={selected}
+                        onChange={onSelect}
+                        onCreate={startCreating}
+                        disabled={disabled}
+                        required={required}
+                    />
+                </Box>
             )}
-            {errors.patient_id && (
-                <Text color="red.600" fontSize="sm" role="alert">
-                    {String(errors.patient_id)}
-                </Text>
-            )}
-        </Stack>
+            {errors.patient_id && <Field.ErrorText role="alert">{String(errors.patient_id)}</Field.ErrorText>}
+        </Field.Root>
     )
 }

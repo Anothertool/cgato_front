@@ -14,7 +14,7 @@ const actions = {
     notified: { status: 'delivered', label: 'Entregada' },
 }
 
-export default function LensOrderActionButton({ order, disabled }) {
+export default function LensOrderActionButton({ order, disabled, onDelivered }) {
     const [open, setOpen] = useState(false)
     const [appointmentDate, setAppointmentDate] = useState('')
     const action = actions[order.status]
@@ -23,7 +23,10 @@ export default function LensOrderActionButton({ order, disabled }) {
         mutationFn: (values) => lensOrdersApi.update(order.id, values),
         invalidateKeys: action ? [lensOrdersQueryKey(order.status), lensOrdersQueryKey(action.status)] : [],
         successMessage: 'Pedido actualizado',
-        onSuccess: () => setOpen(false),
+        onSuccess: (_updated, values) => {
+            setOpen(false)
+            if (values.status === 'delivered' && order.lens_type !== 'lio') onDelivered(order.id)
+        },
     })
 
     if (!action) return null

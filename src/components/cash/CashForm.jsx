@@ -31,18 +31,18 @@ const associationOptions = [
     { value: 'order', label: 'Pedido', icon: Package },
 ]
 
-export default function CashForm({ entry, surgery, onClose }) {
+export default function CashForm({ entry, surgery, lensOrderId, onClose }) {
     const [selectedSurgery, setSelectedSurgery] = useState(() => {
         if (surgery) return surgery
         if (entry?.surgery && typeof entry.surgery === 'object') return entry.surgery
         const id = entry?.surgery_id || entry?.surgery
         return id ? { id } : null
     })
-    const [selectedOrder, setSelectedOrder] = useState(entry?.lens_order_id ?? null)
+    const [selectedOrder, setSelectedOrder] = useState(lensOrderId ?? entry?.lens_order_id ?? null)
     const [association, setAssociation] = useState(
         surgery || entry?.surgery || entry?.surgery_id
             ? 'surgery'
-            : entry?.lens_order_id
+            : lensOrderId || entry?.lens_order_id
               ? 'order'
               : entry?.patient
                 ? 'patient'
@@ -50,7 +50,7 @@ export default function CashForm({ entry, surgery, onClose }) {
     )
     const [value, setValue] = useState(() => ({
         date: entry?.date || todayDate(),
-        amount: entry?.amount ?? '',
+        amount: entry?.amount ?? (lensOrderId ? '105' : ''),
         payment_method: entry?.payment_method || 'CASH',
         invoice_number: entry?.invoice_number || '',
         invoice_status: entry?.invoice_status || 'PENDING',
@@ -174,7 +174,7 @@ export default function CashForm({ entry, surgery, onClose }) {
                                                     </Text>
                                                 )}
                                             </Box>
-                                        ) : (
+                                        ) : lensOrderId ? null : (
                                             <FormField label="Asociar cobro (opcional)">
                                                 <SimpleGrid
                                                     columns={3}
@@ -221,7 +221,7 @@ export default function CashForm({ entry, surgery, onClose }) {
                                                 />
                                             </FormField>
                                         )}
-                                        {!surgery && association === 'order' && (
+                                        {!surgery && !lensOrderId && association === 'order' && (
                                             <FormField label="Pedido" required error={errors.lens_order_id}>
                                                 <LensOrderSelect
                                                     value={selectedOrder}

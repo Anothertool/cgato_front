@@ -1,13 +1,16 @@
 import { useState } from 'react'
-import { Button, CloseButton, Dialog, Flex, Grid, Input, Portal, SimpleGrid, Stack, Textarea } from '@chakra-ui/react'
+import { Button, CloseButton, Dialog, Flex, Input, Portal, SimpleGrid, Stack, Textarea } from '@chakra-ui/react'
 import { CalendarDays, PackageCheck } from 'lucide-react'
 import { lensOrderOptionsQueryKey, lensOrdersApi, lensOrdersQueryKey } from '../../api/lensOrders'
 import { patientsApi } from '../../api/patients'
+import { surgeriesApi } from '../../api/surgeries'
+import useAuthFetch from '../../hooks/useAuthFetch'
 import useAuthMutate from '../../hooks/useAuthMutate'
-import { toDateTimeInput } from '../../utils/format'
+import { patientName, toDateTimeInput } from '../../utils/format'
 import EyeSelector from '../common/EyeSelector'
 import PatientField from '../common/PatientField'
 import { emptyPatient, patientPayload } from '../patients/PatientFields'
+import SurgerySelect from '../surgeries/SurgerySelect'
 import { ErrorNotice } from '../ui/Feedback'
 import FormField, { SelectInput } from '../ui/FormField'
 
@@ -15,8 +18,11 @@ const laboratories = {
     TIEDRA: 'TIEDRA (4177)',
     MENICOM: 'MENICON (103586)',
     MARKENOVI: 'Markennovy (50197)',
+    JOHNSON_JOHNSON: 'Johnson & Johnson',
+    BVI: 'BVI',
+    HOYA: 'HOYA',
 }
-const lensTypes = { ortho_k: 'Orto-K', rgp: 'RPG', soft: 'Blanda' }
+const lensTypes = { ortho_k: 'Orto-K', rgp: 'RPG', soft: 'Blanda', lio: 'LIO' }
 const formats = { blister: 'Blíster', box: 'Caja' }
 const deliveryOptions = [
     { value: 'appointment', label: 'Citar', icon: CalendarDays },
@@ -24,10 +30,15 @@ const deliveryOptions = [
 ]
 const orderFields = ['lens_type', 'laboratory', 'format', 'right_eye_parameters', 'left_eye_parameters', 'notes']
 
-function OrderSelect({ label, name, value = '', options }) {
+function OrderSelect({ label, name, value = '', options, onChange, disabled }) {
     return (
         <FormField label={label}>
-            <SelectInput name={name} aria-label={label} defaultValue={value}>
+            <SelectInput
+                name={name}
+                aria-label={label}
+                {...(onChange ? { value, onChange } : { defaultValue: value })}
+                disabled={disabled}
+            >
                 <option value="">Sin especificar</option>
                 {value && !Object.hasOwn(options, value) && <option value={value}>{value}</option>}
                 {Object.entries(options).map(([key, text]) => (
@@ -42,10 +53,23 @@ function OrderSelect({ label, name, value = '', options }) {
 
 export default function LensOrderForm({ order, onClose }) {
     const [selected, setSelected] = useState(order?.patient ?? null)
+    const [lensType, setLensType] = useState(order?.lens_type ?? '')
+    const [selectedSurgery, setSelectedSurgery] = useState(() =>
+        order?.surgery_id ? { id: order.surgery_id, patient_name: patientName(order.patient) } : null,
+    )
     const [mode, setMode] = useState('existing')
     const [patient, setPatient] = useState(emptyPatient)
-    const [eye, setEye] = useState(order?.eye ?? '')
+    const [eye, setEye] = useState(order?.eye || 'BOTH')
     const [deliveryType, setDeliveryType] = useState(order?.delivery_type ?? '')
+    const isLio = lensType === 'lio'
+    const surgeryId = isLio ? (selectedSurgery?.id ?? null) : null
+    const surgeryQuery = useAuthFetch(
+        ['surgeries', 'detail', surgeryId],
+        ({ signal }) => surgeriesApi.getById(surgeryId, signal),
+        { enabled: Boolean(surgeryId) },
+    )
+    const surgeryPatientId =
+        surgeryQuery.data?.patient?.id ?? (surgeryId === order?.surgery_id ? order?.patient?.id : null)
     const showAppointment =
         deliveryType === 'appointment' && (order?.appointment_date || ['notified', 'delivered'].includes(order?.status))
     const mutation = useAuthMutate({
@@ -65,7 +89,8 @@ export default function LensOrderForm({ order, onClose }) {
         },
     })
     const pending = mutation.isPending || createPatient.isPending
-    const canSubmit = Boolean((order || deliveryType) && (mode === 'new' ? patient.first_name.trim() : selected))
+    const hasPatient = isLio ? surgeryPatientId : mode === 'new' ? patient.first_name.trim() : selected
+    const canSubmit = Boolean((order || deliveryType) && hasPatient)
 
     const submit = async (event) => {
         event.preventDefault()
@@ -73,7 +98,13 @@ export default function LensOrderForm({ order, onClose }) {
         const form = new FormData(event.currentTarget)
         const fields = Object.fromEntries(orderFields.map((name) => [name, form.get(name)]))
         if (order) {
-            const updates = { ...fields, eye, delivery_type: deliveryType, patient_id: selected.id }
+            const updates = {
+                ...fields,
+                eye,
+                delivery_type: deliveryType,
+                patient_id: isLio ? surgeryPatientId : selected.id,
+                ...(surgeryId !== (order.surgery_id ?? null) && { surgery_id: surgeryId }),
+            }
             const date = form.get('appointment_date')
             if (showAppointment && date !== toDateTimeInput(order.appointment_date)) {
                 updates.appointment_date = date ? new Date(date).toISOString() : null
@@ -90,14 +121,20 @@ export default function LensOrderForm({ order, onClose }) {
             return
         }
         let orderPatient = selected
-        if (mode === 'new') {
+        if (!isLio && mode === 'new') {
             try {
                 orderPatient = await createPatient.mutateAsync(patientPayload(patient))
             } catch {
                 return
             }
         }
-        mutation.mutate({ ...fields, eye, delivery_type: deliveryType, patient_id: orderPatient.id })
+        mutation.mutate({
+            ...fields,
+            eye,
+            delivery_type: deliveryType,
+            patient_id: isLio ? surgeryPatientId : orderPatient.id,
+            ...(surgeryId && { surgery_id: surgeryId }),
+        })
     }
 
     return (
@@ -121,41 +158,58 @@ export default function LensOrderForm({ order, onClose }) {
                             <Dialog.Description mt="1">
                                 {order
                                     ? 'Actualiza los datos del pedido.'
-                                    : 'Selecciona o crea un paciente y añade los datos de las lentes.'}
+                                    : 'Añade los datos de las lentes y selecciona un paciente o una cirugía.'}
                             </Dialog.Description>
                         </Dialog.Header>
                         <Dialog.Body py="6">
                             <Stack gap="4">
                                 <ErrorNotice error={mutation.error || createPatient.error} />
-                                <Grid templateColumns={{ base: '1fr', sm: 'minmax(0, 3fr) minmax(0, 2fr)' }} gap="4">
-                                    <PatientField
-                                        required
-                                        selected={selected}
-                                        onSelect={setSelected}
-                                        mode={mode}
-                                        onModeChange={
-                                            order
-                                                ? undefined
-                                                : (next) => {
-                                                      createPatient.reset()
-                                                      setMode(next)
-                                                  }
-                                        }
-                                        patient={patient}
-                                        onPatientChange={setPatient}
-                                        disabled={pending}
-                                        errors={{
-                                            patient: createPatient.error?.response?.data,
-                                            patient_id: mutation.error?.response?.data?.patient_id,
-                                        }}
-                                    />
+                                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4" alignItems="start">
                                     <OrderSelect
-                                        label="Laboratorio"
-                                        name="laboratory"
-                                        value={order?.laboratory ?? ''}
-                                        options={laboratories}
+                                        label="Tipo de lente"
+                                        name="lens_type"
+                                        value={lensType}
+                                        options={lensTypes}
+                                        onChange={(event) => setLensType(event.target.value)}
+                                        disabled={pending}
                                     />
-                                </Grid>
+                                    {isLio ? (
+                                        <FormField
+                                            label="Cirugía"
+                                            required
+                                            error={mutation.error?.response?.data?.surgery_id}
+                                        >
+                                            <SurgerySelect
+                                                value={surgeryQuery.data ?? selectedSurgery}
+                                                disabled={pending}
+                                                onChange={setSelectedSurgery}
+                                            />
+                                            <ErrorNotice error={surgeryQuery.error} onRetry={surgeryQuery.refetch} />
+                                        </FormField>
+                                    ) : (
+                                        <PatientField
+                                            required
+                                            selected={selected}
+                                            onSelect={setSelected}
+                                            mode={mode}
+                                            onModeChange={
+                                                order
+                                                    ? undefined
+                                                    : (next) => {
+                                                          createPatient.reset()
+                                                          setMode(next)
+                                                      }
+                                            }
+                                            patient={patient}
+                                            onPatientChange={setPatient}
+                                            disabled={pending}
+                                            errors={{
+                                                patient: createPatient.error?.response?.data,
+                                                patient_id: mutation.error?.response?.data?.patient_id,
+                                            }}
+                                        />
+                                    )}
+                                </SimpleGrid>
                                 <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4" alignItems="start">
                                     <FormField label="Tipo de entrega" required={!order}>
                                         <Flex w="full" gap="2" role="group" aria-label="Tipo de entrega">
@@ -183,33 +237,7 @@ export default function LensOrderForm({ order, onClose }) {
                                             ))}
                                         </Flex>
                                     </FormField>
-                                    <EyeSelector value={eye} onChange={setEye} disabled={pending} />
-                                    <OrderSelect
-                                        label="Tipo de lente"
-                                        name="lens_type"
-                                        value={order?.lens_type ?? ''}
-                                        options={lensTypes}
-                                    />
-                                    <OrderSelect
-                                        label="Formato"
-                                        name="format"
-                                        value={order?.format ?? ''}
-                                        options={formats}
-                                    />
-                                    <FormField label="Parámetros OD">
-                                        <Textarea
-                                            name="right_eye_parameters"
-                                            aria-label="Parámetros OD"
-                                            defaultValue={order?.right_eye_parameters}
-                                        />
-                                    </FormField>
-                                    <FormField label="Parámetros OI">
-                                        <Textarea
-                                            name="left_eye_parameters"
-                                            aria-label="Parámetros OI"
-                                            defaultValue={order?.left_eye_parameters}
-                                        />
-                                    </FormField>
+                                    <EyeSelector value={eye} onChange={setEye} required disabled={pending} />
                                 </SimpleGrid>
                                 {showAppointment && (
                                     <FormField label="Fecha y hora de la cita">
@@ -220,6 +248,36 @@ export default function LensOrderForm({ order, onClose }) {
                                         />
                                     </FormField>
                                 )}
+                                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
+                                    <OrderSelect
+                                        label="Formato"
+                                        name="format"
+                                        value={order?.format ?? ''}
+                                        options={formats}
+                                    />
+                                    <OrderSelect
+                                        label="Laboratorio"
+                                        name="laboratory"
+                                        value={order?.laboratory ?? ''}
+                                        options={laboratories}
+                                    />
+                                </SimpleGrid>
+                                <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
+                                    <FormField label="Parámetros OI">
+                                        <Textarea
+                                            name="left_eye_parameters"
+                                            aria-label="Parámetros OI"
+                                            defaultValue={order?.left_eye_parameters}
+                                        />
+                                    </FormField>
+                                    <FormField label="Parámetros OD">
+                                        <Textarea
+                                            name="right_eye_parameters"
+                                            aria-label="Parámetros OD"
+                                            defaultValue={order?.right_eye_parameters}
+                                        />
+                                    </FormField>
+                                </SimpleGrid>
                                 <FormField label="Notas">
                                     <Textarea name="notes" aria-label="Notas" defaultValue={order?.notes} />
                                 </FormField>

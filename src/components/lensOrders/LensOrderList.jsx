@@ -1,11 +1,14 @@
+import { useState } from 'react'
 import { Badge, Box, Button, Flex, Heading, Spinner, Stack, Text } from '@chakra-ui/react'
 import { lensOrdersApi } from '../../api/lensOrders'
 import { useAuthInfiniteFetch } from '../../hooks/useAuthFetch'
+import CashForm from '../cash/CashForm'
 import { ErrorNotice } from '../ui/Feedback'
 import LensOrderCard from './LensOrderCard'
 
 export default function LensOrderList({ stage, queryKey }) {
     const { status, label, color, icon: Icon } = stage
+    const [chargingOrderId, setChargingOrderId] = useState(null)
     const query = useAuthInfiniteFetch(
         queryKey,
         ({ queryKey: [, filters], pageParam, signal }) =>
@@ -61,6 +64,7 @@ export default function LensOrderList({ stage, queryKey }) {
                         <LensOrderCard
                             key={order.id}
                             order={order}
+                            onDelivered={setChargingOrderId}
                             disabled={query.isRefetchError || (query.isFetching && !query.isFetchingNextPage)}
                         />
                     ))}
@@ -77,6 +81,7 @@ export default function LensOrderList({ stage, queryKey }) {
                     )}
                 </Stack>
             </Box>
+            {chargingOrderId && <CashForm lensOrderId={chargingOrderId} onClose={() => setChargingOrderId(null)} />}
         </Stack>
     )
 }
