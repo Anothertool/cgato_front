@@ -17,15 +17,17 @@ const actions = {
 export default function LensOrderActionButton({ order, disabled, onDelivered }) {
     const [open, setOpen] = useState(false)
     const [appointmentDate, setAppointmentDate] = useState('')
-    const action = actions[order.status]
-    const needsAppointment = order.status === 'received' && order.delivery_type === 'appointment'
+    const isSurgery = order.is_surgery
+    const action =
+        isSurgery && order.status === 'received' ? { status: 'delivered', label: 'Comprobadas' } : actions[order.status]
+    const needsAppointment = !isSurgery && order.status === 'received' && order.delivery_type === 'appointment'
     const mutation = useAuthMutate({
         mutationFn: (values) => lensOrdersApi.update(order.id, values),
         invalidateKeys: action ? [lensOrdersQueryKey(order.status), lensOrdersQueryKey(action.status)] : [],
         successMessage: 'Pedido actualizado',
         onSuccess: (_updated, values) => {
             setOpen(false)
-            if (values.status === 'delivered' && order.lens_type !== 'lio') onDelivered(order.id)
+            if (values.status === 'delivered' && !isSurgery) onDelivered(order.id)
         },
     })
 

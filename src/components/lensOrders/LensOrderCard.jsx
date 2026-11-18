@@ -17,7 +17,15 @@ export default function LensOrderCard({ order, disabled, onDelivered }) {
     const delivery = deliveryLabels[order.delivery_type]
     return (
         <>
-            <Stack as="article" gap="2" p="3" bg="white" borderWidth="1px" borderColor="gray.200" rounded="lg">
+            <Stack
+                as="article"
+                gap="2"
+                p="3"
+                bg={order.is_surgery ? 'blue.50' : 'red.50'}
+                borderWidth="1px"
+                borderColor={order.is_surgery ? 'blue.200' : 'red.200'}
+                rounded="lg"
+            >
                 <Flex align="baseline" justify="space-between" gap="2">
                     <Heading as="h3" size="sm" minW="0" overflowWrap="anywhere">
                         {name}

@@ -22,9 +22,12 @@ export default function LensOrdersPage() {
     const [formOpen, setFormOpen] = useState(false)
     const [searchParams, setSearchParams] = useSearchParams()
     const laboratory = searchParams.get('laboratory') ?? ''
+    const surgeryParam = searchParams.get('is_surgery')
+    const isSurgery = ['true', 'false'].includes(surgeryParam) ? surgeryParam : ''
     const search = searchParams.get('search') ?? ''
     const searchTerm = useDebouncedValue(search.trim())
     const filters = {
+        ...(isSurgery && { is_surgery: isSurgery }),
         ...(laboratory && { laboratory }),
         ...(search.trim() && searchTerm && { search: searchTerm }),
     }
@@ -54,11 +57,13 @@ export default function LensOrdersPage() {
                     headerActions,
                 )}
             <OrdersTopBarFilter
+                isSurgery={isSurgery}
+                onSurgeryChange={(value) => updateFilters({ is_surgery: value })}
                 laboratory={laboratory}
                 onLaboratoryChange={(value) => updateFilters({ laboratory: value })}
                 search={search}
                 onSearchChange={(value) => updateFilters({ search: value }, true)}
-                onClear={() => updateFilters({ laboratory: '', search: '' })}
+                onClear={() => updateFilters({ is_surgery: '', laboratory: '', search: '' })}
             />
             <Box overflowX="auto" overflowY="hidden" role="region" aria-label="Tablero de pedidos" tabIndex={0}>
                 <Grid h="full" templateRows="minmax(0, 1fr)" templateColumns="repeat(5, minmax(220px, 1fr))" gap="3">
