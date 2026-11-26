@@ -24,7 +24,8 @@ import {
     iolModelLabels,
     surgeryTypeLabels,
 } from '../../utils/format'
-import { useSurgeryForm } from './utils'
+import { requiresIolModel, useSurgeryForm } from './utils'
+import { implantTypeLabels, SURGERY_PRICES } from './prices'
 import FormField, { SelectInput } from '../ui/FormField'
 import { ErrorNotice, ListFeedback } from '../ui/Feedback'
 import { surgeriesApi } from '../../api/surgeries'
@@ -35,13 +36,17 @@ import DateTimeSelectField from '../common/DateTimeSelectField'
 import PatientField from '../common/PatientField'
 import SurgeryScheduleFields from './SurgeryScheduleFields'
 
-function Section({ number, title, action, children }) {
+const availableIolModelLabels = Object.fromEntries(
+    Object.entries(iolModelLabels).filter(([key]) => key !== 'EDOF_TORICA'),
+)
+
+function Section({ emoji, title, action, children }) {
     return (
         <Box>
-            <Flex justify="space-between" align="center" gap="3" mb="4">
-                <Heading size="sm" display="flex" alignItems="center" gap="3">
-                    <Text as="span" rounded="md" bg="blue.50" color="blue.800" px="2" py="1" fontSize="xs">
-                        {number}
+            <Flex justify="space-between" align="center" gap="2" mb="3">
+                <Heading size="sm" display="flex" alignItems="center" gap="2">
+                    <Text as="span" aria-hidden="true">
+                        {emoji}
                     </Text>
                     {title}
                 </Heading>
@@ -135,7 +140,9 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
     const payments = surgery?.payments || []
     const {
         value,
-        hasLensPrice,
+        implantType,
+        changeImplantType,
+        bothEyesRequired,
         mode,
         selected,
         patient,
@@ -166,17 +173,8 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
         />
     )
     const selectField = (name, label, options, optional = true, required = !optional || name === 'surgery_type') => (
-        <FormField
-            label={label}
-            error={errors[name]}
-            required={required}
-        >
-            <SelectInput
-                name={name}
-                value={value[name]}
-                onChange={change}
-                required={required}
-            >
+        <FormField label={label} error={errors[name]} required={required}>
+            <SelectInput name={name} value={value[name]} onChange={change} required={required}>
                 {optional && <option value="">Sin seleccionar</option>}
                 {Object.entries(options).map(([key, text]) => (
                     <option key={key} value={key}>
@@ -189,7 +187,7 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
     return (
         <Box as="form" noValidate onSubmit={submit} display="flex" flexDirection="column" flex="1" minH="0">
             <Dialog.Body py="6">
-                <Stack gap="8">
+                <Stack gap="5">
                     <ErrorNotice error={mutation.error} />
                     <PatientField
                         selected={selected}
@@ -202,8 +200,8 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                         errors={errors}
                     />
                     {!quoteOnly && (
-                        <Section number="02" title="Estado">
-                            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5" alignItems="center">
+                        <Section emoji="📋" title="Presupuesto">
+                            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4" alignItems="center">
                                 {selectField('budget_status', 'Estado del presupuesto', budgetStatusLabels, false)}
                                 <Box>
                                     <Text fontSize="sm" mb="2">
@@ -214,108 +212,78 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                             </SimpleGrid>
                         </Section>
                     )}
-                    <Section number={quoteOnly ? '02' : '03'} title="Datos de la cirugía">
-                        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
-                            {selectField('surgery_type', 'Tipo de cirugía', surgeryTypeLabels)}
-                            <EyeSelector
-                                value={value.eye}
-                                onChange={(next) => change({ target: { name: 'eye', value: next } })}
-                                required
-                                disabled={mutation.isPending}
-                                error={errors.eye}
-                            />
+                    <Section emoji="👁️" title="Cirugía">
+                        <Stack gap="4">
+                            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
+                                {selectField('surgery_type', 'Tipo de cirugía', surgeryTypeLabels)}
+                                <EyeSelector
+                                    value={value.eye}
+                                    onChange={(next) => change({ target: { name: 'eye', value: next } })}
+                                    required
+                                    disabled={mutation.isPending || bothEyesRequired}
+                                    error={errors.eye}
+                                />
+                            </SimpleGrid>
                             {!quoteOnly && (
-                                <>
+                                <SimpleGrid columns={{ base: 1, md: 3 }} gap="4">
                                     <DateTimeSelectField
                                         value={value.scheduled_at}
                                         onChange={(next) => change({ target: { name: 'scheduled_at', value: next } })}
                                         error={errors.scheduled_at}
                                         required
                                         disabled={mutation.isPending}
+                                        gridColumn={{ base: 'auto', md: 'span 2' }}
+                                        gap="4"
                                     />
                                     {selectField('insurer', 'Aseguradora', insurerLabels)}
-                                    {field('anesthesia', 'Anestesia', { maxLength: 255 })}
-                                </>
+                                </SimpleGrid>
                             )}
-                        </SimpleGrid>
-                    </Section>
-                    <Section number={quoteOnly ? '03' : '04'} title="Lente intraocular">
-                        <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
-                            {selectField('iol_model', 'Modelo', iolModelLabels, true, value.surgery_type !== 'LASIK')}
-                            {field('iol_power', 'Potencia (D)', {
-                                type: 'number',
-                                min: '-99999.99',
-                                max: '99999.99',
-                                step: '0.01',
-                            })}
-                        </SimpleGrid>
+                            <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
+                                {selectField(
+                                    'iol_model',
+                                    'Modelo',
+                                    surgery ? iolModelLabels : availableIolModelLabels,
+                                    true,
+                                    requiresIolModel(value.surgery_type),
+                                )}
+                                {field('iol_power', 'Potencia (D)', {
+                                    type: 'number',
+                                    min: '-99999.99',
+                                    max: '99999.99',
+                                    step: '0.01',
+                                })}
+                            </SimpleGrid>
+                            {!surgery && SURGERY_PRICES[value.surgery_type]?.priceByImplant && (
+                                <FormField label="Implante para estimar el precio">
+                                    <SelectInput
+                                        value={implantType}
+                                        onChange={changeImplantType}
+                                        disabled={mutation.isPending}
+                                    >
+                                        <option value="">Sin seleccionar</option>
+                                        {Object.entries(implantTypeLabels).map(([key, label]) => (
+                                            <option key={key} value={key}>
+                                                {label}
+                                            </option>
+                                        ))}
+                                    </SelectInput>
+                                </FormField>
+                            )}
+                        </Stack>
                     </Section>
                     {quoteOnly &&
                         field('amount', 'Importe del presupuesto (€)', {
                             type: 'number',
                             required: true,
-                            readOnly: hasLensPrice,
                             min: '0',
                             max: '9999999999.99',
                             step: '0.01',
                         })}
                     {!quoteOnly && (
                         <>
-                            <Section
-                                number="05"
-                                title="Observaciones"
-                                action={
-                                    <Button
-                                        type="button"
-                                        size="sm"
-                                        variant="ghost"
-                                        aria-expanded={notesExpanded}
-                                        aria-controls="surgery-notes"
-                                        onClick={() => setNotesExpanded((current) => !current)}
-                                    >
-                                        {notesExpanded ? 'Contraer' : 'Ampliar'}
-                                        {notesExpanded ? <LuChevronUp /> : <LuChevronDown />}
-                                    </Button>
-                                }
-                            >
-                                <FormField label="Notas" error={errors.notes}>
-                                    <Textarea
-                                        id="surgery-notes"
-                                        name="notes"
-                                        value={value.notes}
-                                        onChange={change}
-                                        rows={notesExpanded ? 8 : 2}
-                                        minH={notesExpanded ? '200px' : '72px'}
-                                        resize={notesExpanded ? 'vertical' : 'none'}
-                                        placeholder="Añade observaciones relevantes para la cirugía…"
-                                    />
-                                </FormField>
-                            </Section>
-                            <Section number="06" title="Checklist de preparación">
+                            <Section emoji="💰" title="Dineros">
                                 <Stack gap="4">
-                                    {Object.entries(checklist).map(([key, label]) => (
-                                        <Box key={key}>
-                                            <Checkbox.Root
-                                                colorPalette="blue"
-                                                checked={value[key]}
-                                                onCheckedChange={({ checked }) => changeChecklist(key, checked)}
-                                            >
-                                                <Checkbox.HiddenInput />
-                                                <Checkbox.Control />
-                                                <Checkbox.Label fontSize="sm">{label}</Checkbox.Label>
-                                            </Checkbox.Root>
-                                            {errors[key] && (
-                                                <Text color="red.600" fontSize="xs">
-                                                    {String(errors[key])}
-                                                </Text>
-                                            )}
-                                        </Box>
-                                    ))}
-                                </Stack>
-                            </Section>
-                            <Section number="07" title="Economía">
-                                <Stack gap="5">
-                                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="5">
+                                    <SimpleGrid columns={{ base: 1, sm: 2 }} gap="4">
                                         {field('amount', 'Importe de cirugía (€)', {
                                             type: 'number',
                                             min: '0',
@@ -441,17 +409,77 @@ function SurgeryFormFields({ surgery, onClose, onPendingChange, quoteOnly }) {
                                     </Box>
                                 </Stack>
                             </Section>
+                            <Section emoji="✅" title="Checklist de preparación">
+                                <Stack gap="3">
+                                    {Object.entries(checklist).map(([key, label]) => (
+                                        <Box key={key}>
+                                            <Checkbox.Root
+                                                colorPalette="blue"
+                                                checked={value[key]}
+                                                onCheckedChange={({ checked }) => changeChecklist(key, checked)}
+                                            >
+                                                <Checkbox.HiddenInput />
+                                                <Checkbox.Control />
+                                                <Checkbox.Label fontSize="sm">{label}</Checkbox.Label>
+                                            </Checkbox.Root>
+                                            {errors[key] && (
+                                                <Text color="red.600" fontSize="xs">
+                                                    {String(errors[key])}
+                                                </Text>
+                                            )}
+                                        </Box>
+                                    ))}
+                                </Stack>
+                            </Section>
+                            <Section
+                                emoji="📝"
+                                title="Notas"
+                                action={
+                                    <Button
+                                        type="button"
+                                        size="sm"
+                                        variant="ghost"
+                                        aria-expanded={notesExpanded}
+                                        aria-controls="surgery-notes"
+                                        onClick={() => setNotesExpanded((current) => !current)}
+                                    >
+                                        {notesExpanded ? 'Contraer' : 'Ampliar'}
+                                        {notesExpanded ? <LuChevronUp /> : <LuChevronDown />}
+                                    </Button>
+                                }
+                            >
+                                <FormField label="Notas" error={errors.notes}>
+                                    <Textarea
+                                        id="surgery-notes"
+                                        name="notes"
+                                        value={value.notes}
+                                        onChange={change}
+                                        rows={notesExpanded ? 8 : 2}
+                                        minH={notesExpanded ? '200px' : '72px'}
+                                        resize={notesExpanded ? 'vertical' : 'none'}
+                                        placeholder="Añade observaciones relevantes para la cirugía…"
+                                    />
+                                </FormField>
+                            </Section>
                         </>
                     )}
                 </Stack>
             </Dialog.Body>
-            <Dialog.Footer borderTopWidth="1px">
-                <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
-                    Cancelar
-                </Button>
-                <Button type="submit" bg="blue.900" color="white" loading={mutation.isPending}>
-                    {quoteOnly ? 'Generar presupuesto' : 'Guardar cambios'}
-                </Button>
+            <Dialog.Footer borderTopWidth="1px" justifyContent="space-between" gap="4" flexWrap="wrap">
+                <Flex align="center" gap="2" wrap="wrap">
+                    <Text fontSize="sm" fontWeight="semibold">
+                        {quoteOnly ? 'Importe del presupuesto' : 'Importe de cirugía'}: {formatMoney(value.amount)}
+                    </Text>
+                    <Badge colorPalette={paymentBadge.color}>{paymentBadge.label}</Badge>
+                </Flex>
+                <Flex gap="3" ml="auto">
+                    <Button variant="outline" onClick={onClose} disabled={mutation.isPending}>
+                        Cancelar
+                    </Button>
+                    <Button type="submit" bg="blue.900" color="white" loading={mutation.isPending}>
+                        {quoteOnly ? 'Generar presupuesto' : 'Guardar cambios'}
+                    </Button>
+                </Flex>
             </Dialog.Footer>
         </Box>
     )

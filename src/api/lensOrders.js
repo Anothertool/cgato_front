@@ -8,4 +8,5 @@ export const lensOrdersApi = {
     getById: (id, signal) => client.get(`/api/orders/${id}/`, { signal }).then(({ data }) => data),
     create: (values) => client.post('/api/orders/', values).then(({ data }) => data),
     update: (id, values) => client.patch(`/api/orders/${id}/`, values).then(({ data }) => data),
+    remove: (id) => client.delete(`/api/orders/${id}/`),
 }

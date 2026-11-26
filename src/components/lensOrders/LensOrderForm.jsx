@@ -18,7 +18,7 @@ const laboratories = {
     TIEDRA: 'TIEDRA (4177)',
     MENICOM: 'MENICON (103586)',
     MARKENOVI: 'Markennovy (50197)',
-    JOHNSON_JOHNSON: 'Johnson & Johnson',
+    JOHNSON_JOHNSON: 'Johnson & Johnson (295213)',
     BVI: 'BVI',
     HOYA: 'HOYA',
 }

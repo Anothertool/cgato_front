@@ -41,15 +41,15 @@ export const statusColors = {
 }
 export const eyeLabels = { RIGHT: 'Derecho', LEFT: 'Izquierdo', BOTH: 'Ambos' }
 export const surgeryTypeLabels = {
-    FACO_INSTENT: 'Faco + Instent',
+    FACO_ISTENT: 'Faco + iStent',
     FACO: 'Faco',
     FEPNP: 'FEPNP',
     FACO_PRESERFLO: 'Faco + Preserflo',
     BLEPHAROPLASTY: 'Blefaroplastia',
     TUMOR: 'Tumoración',
-    INSTENT: 'Instent',
+    GLAUCOMA_ISTENT: 'Glaucoma iStent',
     EPNP: 'EPNP',
-    PRESERFLO: 'Preserflo',
+    GLAUCOMA_PRESERFLO: 'Glaucoma Preserflo',
     ICL: 'ICL',
     PRK: 'PRK',
     LASIK: 'LASIK',

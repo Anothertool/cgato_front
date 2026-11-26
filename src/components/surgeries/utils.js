@@ -16,17 +16,10 @@ import {
 } from '../../utils/format'
 import { emptyPatient, patientPayload } from '../patients/PatientFields'
 import { toaster } from '../ui/toaster'
+import { getEstimatedAmount, SURGERY_PRICES } from './prices'
 
-const lensPrices = {
-    EYEHANCE_TORICA: 990,
-    EDOF_BVI_SERENITY: 740,
-    EDOF_TORICA: 1390,
-    MULTI_DRN00V: 1790,
-    MULTI_TORICA_DRT: 1890,
-    PURE_DEN00V: 1690,
-    PURE_TORICA_DET: 1790,
-}
-const istentPrice = 1500
+export const requiresIolModel = (surgeryType) =>
+    ['FACO', 'FACO_ISTENT', 'FACO_PRESERFLO', 'FEPNP', 'ICL'].includes(surgeryType)
 
 export const initialValues = {
     surgery_type: '',
@@ -65,8 +58,8 @@ export const surgerySchema = yup.object({
     eye: optionalChoice(eyeLabels).required('Selecciona un ojo.'),
     insurer: optionalChoice(insurerLabels),
     iol_model: optionalChoice(iolModelLabels).when('surgery_type', {
-        is: 'LASIK',
-        otherwise: (schema) => schema.required('Selecciona un modelo de lente.'),
+        is: requiresIolModel,
+        then: (schema) => schema.required('Selecciona un modelo de lente.'),
     }),
     budget_status: yup
         .string()
@@ -117,6 +110,7 @@ const formSchema = yup.object({
 export function getInitialValues(surgery) {
     return {
         ...Object.fromEntries(Object.entries(initialValues).map(([key, value]) => [key, surgery?.[key] ?? value])),
+        amount: surgery ? surgery.amount ?? '' : '0',
         scheduled_at: toDateTimeInput(surgery?.scheduled_at),
     }
 }
@@ -180,14 +174,9 @@ export function surgeryPayload(value, surgery, mode, selected, patient) {
 
 export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
     const quoteWindow = useRef(null)
-    const [formValue, setValue] = useState(() => getInitialValues(surgery))
-    const lensPrice = lensPrices[formValue.iol_model]
-    const hasLensPrice = quoteOnly && formValue.surgery_type !== 'LASIK' && Number.isFinite(lensPrice)
-    const implantPrice = formValue.surgery_type === 'FACO_INSTENT' && formValue.iol_model === 'PURE_DEN00V' ? istentPrice : 0
-    const eyeCount = formValue.eye === 'BOTH' ? 2 : Number(Boolean(formValue.eye))
-    const value = hasLensPrice
-        ? { ...formValue, amount: eyeCount ? String((lensPrice + implantPrice) * eyeCount) : '' }
-        : formValue
+    const [value, setValue] = useState(() => getInitialValues(surgery))
+    const [implantType, setImplantType] = useState('')
+    const bothEyesRequired = !surgery && SURGERY_PRICES[value.surgery_type]?.unit === 'both_eyes'
     const [mode, setMode] = useState('existing')
     const [selected, setSelected] = useState(surgery?.patient || null)
     const [patient, setPatient] = useState(() => ({ ...emptyPatient }))
@@ -215,9 +204,25 @@ export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
     }
     const change = (event) => {
         const { name, value: next } = event.target
-        setValue((current) => ({ ...current, [name]: next }))
+        setValue((current) => {
+            const updated = { ...current, [name]: next }
+            if (!surgery && ['iol_model', 'iol_power', 'eye', 'surgery_type'].includes(name)) {
+                if (SURGERY_PRICES[updated.surgery_type]?.unit === 'both_eyes') updated.eye = 'BOTH'
+                updated.amount = getEstimatedAmount(updated, implantType)
+            }
+            return updated
+        })
         clearError(name)
-        if (quoteOnly && ['iol_model', 'eye', 'surgery_type'].includes(name)) clearError('amount')
+        if (!surgery && ['iol_model', 'iol_power', 'eye', 'surgery_type'].includes(name)) {
+            clearError('amount')
+            clearError('eye')
+        }
+    }
+    const changeImplantType = (event) => {
+        const next = event.target.value
+        setImplantType(next)
+        setValue((current) => ({ ...current, amount: getEstimatedAmount(current, next) }))
+        clearError('amount')
     }
     const selectPatient = (next) => {
         setSelected(next)
@@ -289,7 +294,9 @@ export function useSurgeryForm(surgery, onClose, quoteOnly = false) {
     const status = surgery?.display_status || value.budget_status
     return {
         value,
-        hasLensPrice,
+        implantType,
+        changeImplantType,
+        bothEyesRequired,
         mode,
         selected,
         patient,

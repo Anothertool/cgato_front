@@ -28,7 +28,7 @@ function filterTime({ value }, input) {
     return digits.startsWith(query) || digits.replace(/^0/, '').startsWith(query)
 }
 
-export default function DateTimeSelectField({ value, onChange, error, required, disabled }) {
+export default function DateTimeSelectField({ value, onChange, error, required, disabled, ...props }) {
     const id = useId()
     const [defaultTime] = useState(nearestTime)
     const [menuContainer, setMenuContainer] = useState(null)
@@ -36,7 +36,7 @@ export default function DateTimeSelectField({ value, onChange, error, required, 
     const selected = { value: time, label: time }
 
     return (
-        <SimpleGrid columns={{ base: 1, md: 2 }} gap="3" minW="0">
+        <SimpleGrid columns={{ base: 1, md: 2 }} gap="3" minW="0" {...props}>
             <FormField
                 label="Fecha programada"
                 type="date"

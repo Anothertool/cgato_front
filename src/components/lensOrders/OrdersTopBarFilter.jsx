@@ -4,8 +4,8 @@ import FormField, { SelectInput } from '../ui/FormField'
 
 const orderTypes = [
     { value: '', label: 'Todos', icon: ClipboardList, color: 'gray', bg: 'white' },
-    { value: 'false', label: 'Blandas', icon: Eye, color: 'red', bg: 'red.50' },
-    { value: 'true', label: 'Cirugías', icon: Stethoscope, color: 'blue', bg: 'blue.50' },
+    { value: 'false', label: 'LC', icon: Eye, color: 'yellow', bg: 'yellow.50/50' },
+    { value: 'true', label: 'LIO', icon: Stethoscope, color: 'blue', bg: 'blue.50/50' },
 ]
 
 export default function OrdersTopBarFilter({
@@ -46,7 +46,7 @@ export default function OrdersTopBarFilter({
                             boxShadow={
                                 isSurgery === value ? `inset 0 0 0 1px var(--chakra-colors-${color}-600)` : 'none'
                             }
-                            _hover={{ bg: value ? `${color}.100` : 'gray.50' }}
+                            _hover={{ bg: value ? `${color}.100/50` : 'gray.50' }}
                             aria-pressed={isSurgery === value}
                             onClick={() => onSurgeryChange(value)}
                         >

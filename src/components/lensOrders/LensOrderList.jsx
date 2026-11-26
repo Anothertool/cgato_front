@@ -23,7 +23,6 @@ export default function LensOrderList({ stage, queryKey }) {
         results.forEach((order) => orders.set(order.id, order))
     })
     const headingId = `lens-orders-${status}`
-
     return (
         <Stack as="section" aria-labelledby={headingId} minW="0" minH="0" gap="3" p="2" bg="gray.100" rounded="xl">
             <Flex align="center" gap="2" px="3" py="3" bg={color} color="white" rounded="lg" flexShrink="0">
